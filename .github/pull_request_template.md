@@ -1,3 +1,4 @@
+<!-- PR title = squash commit message: type(scope): summary, e.g. feat(agora): add forum create page -->
 ## Summary
 <!-- What does this PR do, in one or two sentences? -->
 
