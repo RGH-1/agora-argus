@@ -1,0 +1,9 @@
+<Solution>
+  <Folder Name="/src/">
+    <Project Path="src/Agora.Web/Agora.Web.csproj" />
+    <Project Path="src/Argus.Client/Argus.Client.csproj" />
+    <Project Path="src/Argus.Contracts/Argus.Contracts.csproj" />
+    <Project Path="src/Argus.DemoClient/Argus.DemoClient.csproj" />
+    <Project Path="src/Argus.Web/Argus.Web.csproj" />
+  </Folder>
+</Solution>
