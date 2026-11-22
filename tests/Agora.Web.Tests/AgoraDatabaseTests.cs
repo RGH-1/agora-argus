@@ -134,7 +134,7 @@ public class AgoraDatabaseTests
             var user = new ApplicationUser { UserName = "member", Email = "member@agora.local", DisplayName = "Member" };
             Context.Users.Add(user);
             await Context.SaveChangesAsync();
-            var forum = new Forum { Name = "Test forum", CreatorId = user.Id, Status = ForumStatus.Approved };
+            var forum = new Forum { Name = "Test forum", NormalizedName = "TEST FORUM", CreatorId = user.Id, Status = ForumStatus.Approved };
             Context.Forums.Add(forum);
             await Context.SaveChangesAsync();
             var post = new Post { ForumId = forum.Id, AuthorId = user.Id, Content = "A persisted test post." };
