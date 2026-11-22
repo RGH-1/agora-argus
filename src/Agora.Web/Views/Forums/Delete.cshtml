@@ -1,0 +1,5 @@
+@model Agora.Web.Data.Entities.Forum
+@{
+    ViewData["Title"] = "Delete forum";
+}
+<h1>Delete forum</h1><div class="alert alert-warning"><p>Are you sure you want to delete <strong>@Model.Name</strong>?</p><p>This also deletes the forum's posts and related content.</p></div><form asp-action="Delete" method="post"><input type="hidden" name="id" value="@Model.Id" /><button class="btn btn-danger" type="submit">Delete forum</button> <a class="btn btn-outline-secondary" asp-action="Mine">Cancel</a></form>

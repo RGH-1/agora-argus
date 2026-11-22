@@ -1,0 +1,8 @@
+@model Agora.Web.Data.Entities.Forum
+@{
+    ViewData["Title"] = Model.Name;
+}
+<p><a asp-action="Index">&larr; All forums</a></p>
+<h1>@Model.Name</h1>
+<p class="lead">@Model.Description</p>
+<p class="text-muted">Created by @Model.Creator.DisplayName</p>

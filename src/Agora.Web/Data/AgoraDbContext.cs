@@ -27,8 +27,10 @@ public class AgoraDbContext(DbContextOptions<AgoraDbContext> options)
         builder.Entity<Forum>(entity =>
         {
             entity.Property(forum => forum.Status).HasConversion<string>().HasMaxLength(20);
+            entity.Property(forum => forum.NormalizedName).HasMaxLength(100).IsRequired();
             entity.HasIndex(forum => forum.Status);
             entity.HasIndex(forum => forum.CreatorId);
+            entity.HasIndex(forum => forum.NormalizedName).IsUnique();
             entity.HasOne(forum => forum.Creator).WithMany(user => user.CreatedForums)
                 .HasForeignKey(forum => forum.CreatorId).OnDelete(DeleteBehavior.Restrict);
         });
