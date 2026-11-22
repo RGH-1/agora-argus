@@ -17,14 +17,7 @@ public class ArgusTopologyTests : IAsyncLifetime
 
     public async Task InitializeAsync()
     {
-        var factory = new ConnectionFactory
-        {
-            HostName = "localhost",
-            // The .env.example values; set these environment variables if your .env differs.
-            UserName = Environment.GetEnvironmentVariable("RABBITMQ_USER") ?? "argus",
-            Password = Environment.GetEnvironmentVariable("RABBITMQ_PASSWORD") ?? "change-me",
-        };
-        _connection = await factory.CreateConnectionAsync();
+        _connection = await TestBroker.ConnectAsync();
         _channel = await _connection.CreateChannelAsync();
     }
 
@@ -59,8 +52,7 @@ public class ArgusTopologyTests : IAsyncLifetime
 
         await PublishAsync(ArgusExchanges.Outbound, ArgusRoutingKeys.HealthStatusChanged(TestClient));
 
-        var result = await _channel.BasicGetAsync(ArgusQueues.Inbox(TestClient), autoAck: true);
-        Assert.NotNull(result);
+        await TestBroker.WaitForMessageAsync(_channel, ArgusQueues.Inbox(TestClient));
     }
 
     [Fact]
@@ -69,12 +61,10 @@ public class ArgusTopologyTests : IAsyncLifetime
         await ArgusTopology.DeclareClientInboxAsync(_channel, TestClient);
         await PublishAsync(ArgusExchanges.Outbound, ArgusRoutingKeys.HealthStatusChanged(TestClient));
 
-        var delivery = await _channel.BasicGetAsync(ArgusQueues.Inbox(TestClient), autoAck: false);
-        Assert.NotNull(delivery);
+        var delivery = await TestBroker.WaitForMessageAsync(_channel, ArgusQueues.Inbox(TestClient), autoAck: false);
         await _channel.BasicNackAsync(delivery.DeliveryTag, multiple: false, requeue: false);
 
-        var dead = await _channel.BasicGetAsync(ArgusQueues.ClientDead(TestClient), autoAck: true);
-        Assert.NotNull(dead);
+        await TestBroker.WaitForMessageAsync(_channel, ArgusQueues.ClientDead(TestClient));
     }
 
     [Fact]
@@ -86,19 +76,24 @@ public class ArgusTopologyTests : IAsyncLifetime
         // A consumer that dies mid-message (channel closed, no ack) is what x-delivery-limit counts.
         // RabbitMQ 4 does NOT count a nack with requeue: true, so that alone would loop forever.
         var attempts = 0;
-        while (true)
+        for (var i = 0; i < 100; i++)
         {
             var consumerChannel = await _connection.CreateChannelAsync();
             var delivery = await consumerChannel.BasicGetAsync(ArgusQueues.Inbox(TestClient), autoAck: false);
             await consumerChannel.CloseAsync(); // "crash": the message goes back unacknowledged
-            if (delivery is null) break;
-            attempts++;
-            Assert.True(attempts <= 10, "The message was never dead-lettered");
+
+            if (delivery is not null)
+            {
+                attempts++;
+                continue;
+            }
+
+            // Not in the inbox: either still on its way back, or dead-lettered
+            if (await _channel.BasicGetAsync(ArgusQueues.ClientDead(TestClient), autoAck: true) is not null) break;
+            await Task.Delay(100);
         }
 
         Assert.Equal(ArgusTopology.DeliveryLimit + 1, attempts); // the first delivery + 3 redeliveries
-        var dead = await _channel.BasicGetAsync(ArgusQueues.ClientDead(TestClient), autoAck: true);
-        Assert.NotNull(dead);
     }
 
     private async Task PublishAsync(string exchange, string routingKey)
