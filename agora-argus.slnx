@@ -7,6 +7,7 @@
     <Project Path="src/Argus.Web/Argus.Web.csproj" />
   </Folder>
   <Folder Name="/tests/">
+    <Project Path="tests/Agora.Web.Tests/Agora.Web.Tests.csproj" Id="1afbb78e-9876-4681-840d-63f2cf953e01" />
     <Project Path="tests/Argus.Contracts.Tests/Argus.Contracts.Tests.csproj" Id="86674403-a858-4bd9-b6f1-7af4bf221974" />
   </Folder>
 </Solution>
