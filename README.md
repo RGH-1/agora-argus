@@ -14,3 +14,43 @@ Advanced Programming project, 2026–2027.
 - `feature/AA-<id>-<name>` / `fix/AA-<id>-<name>`: one per task, merged into `dev` through a pull request
 
 Setup and run instructions will be added here.
+
+## AI Integration (AA-3)
+
+Agora uses the **Google Gemini API** (`gemini-3.5-flash-lite`) for AI-assisted moderation of reported posts. The AI provides recommendations, while moderators make the final decisions.
+
+### Implementation
+
+- **Service:** `src/Agora.Web/Services/GeminiClient.cs`
+- **Tests:** `tests/Agora.Web.Tests/GeminiClientTests.cs`
+- **API key:** Stored in ASP.NET Core User Secrets (`Llm:ApiKey`) for local development and supplied through an untracked `.env` file (`LLM_API_KEY`) for Docker. Never committed to GitHub.
+
+### Automated Testing
+
+Run the Gemini tests:
+
+```powershell
+dotnet test tests/Agora.Web.Tests/Agora.Web.Tests.csproj
+```
+
+To enable the live API test in PowerShell:
+
+```powershell
+$env:RUN_GEMINI_LIVE_TEST = "1"
+dotnet test tests/Agora.Web.Tests/Agora.Web.Tests.csproj
+Remove-Item Env:\RUN_GEMINI_LIVE_TEST
+```
+
+The live test is skipped by default to avoid unnecessary API requests.
+
+### Free-Tier Rate Limits
+
+Verified in Google AI Studio on November 21, 2026, for the **Default Gemini Project**:
+
+| Metric | Limit |
+|---|---:|
+| Requests per minute (RPM) | 15 |
+| Input tokens per minute (TPM) | 250,000 |
+| Requests per day (RPD) | 500 |
+
+Rate limits are project-specific and may change. Exceeding them can result in HTTP 429 responses.
