@@ -39,8 +39,6 @@
 - [ ] Builds with no errors; I ran it (normal path + at least one failure case)
 - [ ] Messages look right in the RabbitMQ Management UI (if any are sent or received)
 - [ ] No passwords, keys or connection strings committed (user-secrets / .env only)
-- [ ] I can explain every line, including code an AI wrote
-- [ ] I merged the latest `dev` into this branch; the PR targets `dev` (or `main` for a release)
 - [ ] The other dev knows if Argus.Contracts or the SDK changed
 
 ## Notes for the other dev
