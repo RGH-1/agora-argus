@@ -15,6 +15,34 @@ Advanced Programming project, 2026–2027.
 
 Setup and run instructions will be added here.
 
+## Agora database foundation (AA-15)
+
+Agora uses its own SQL Server database (`AgoraDb`) and ASP.NET Core Identity; it does not share Argus data. The database contains Identity users and roles plus forums, posts, flat comments, likes, reports, and community rules. `ApplicationUser` adds `DisplayName`, `Bio`, `IsPro`, and `IsBanned`.
+
+Set the local connection string and development seed passwords in the **Agora.Web** User Secrets store (never in source control):
+
+```powershell
+dotnet user-secrets set "ConnectionStrings:AgoraDb" "Server=tcp:127.0.0.1,1433;Database=AgoraDb;User Id=sa;Password=<your-local-sa-password>;TrustServerCertificate=True" --project src/Agora.Web
+dotnet user-secrets set "DevelopmentSeed:AdminPassword" "<development-password>" --project src/Agora.Web
+dotnet user-secrets set "DevelopmentSeed:ModeratorPassword" "<development-password>" --project src/Agora.Web
+dotnet user-secrets set "DevelopmentSeed:MemberPassword" "<development-password>" --project src/Agora.Web
+```
+
+Development startup applies migrations and seeds data. The idempotent seed creates roles `Admin`, `Moderator`, and `Member`; accounts `agora.admin` (`admin@agora.local`), `agora.moderator` (`moderator@agora.local`), `agora.member1` (`member1@agora.local`), and `agora.member2` (`member2@agora.local`); and four community rules. It never runs outside Development.
+
+Migration commands:
+
+```powershell
+dotnet ef database update --project src/Agora.Web --startup-project src/Agora.Web
+dotnet ef migrations add <Name> --project src/Agora.Web --startup-project src/Agora.Web
+```
+
+Run non-integration tests with:
+
+```powershell
+dotnet test --filter "Category!=Integration"
+```
+
 
 ## Docker Infrastructure (AA-4)
 
