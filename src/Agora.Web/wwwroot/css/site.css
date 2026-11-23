@@ -55,6 +55,15 @@ body {
   white-space: pre-wrap;
 }
 
+.comments-section, .comment-card, .comment-body {
+    min-width: 0;
+    overflow-wrap: anywhere;
+}
+
+.comment-body {
+    white-space: pre-wrap;
+}
+
 .forum-card, .forum-details {
   min-width: 0;
 }
