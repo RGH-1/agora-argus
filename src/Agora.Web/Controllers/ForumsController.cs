@@ -7,7 +7,7 @@ using Agora.Web.Data.Entities;
 
 namespace Agora.Web.Controllers;
 
-public class ForumsController(IForumService forumService, UserManager<ApplicationUser> userManager) : Controller
+public class ForumsController(IForumService forumService, IPostService postService, UserManager<ApplicationUser> userManager) : Controller
 {
     [AllowAnonymous]
     public async Task<IActionResult> Index() => View(await forumService.GetPublicAsync());
@@ -16,7 +16,7 @@ public class ForumsController(IForumService forumService, UserManager<Applicatio
     public async Task<IActionResult> Details(int id)
     {
         var forum = await forumService.GetPublicByIdAsync(id);
-        return forum is null ? NotFound() : View(forum);
+        return forum is null ? NotFound() : View(new ForumDetailsViewModel { Forum = forum, Posts = await postService.GetPublicByForumAsync(id) });
     }
 
     [Authorize]

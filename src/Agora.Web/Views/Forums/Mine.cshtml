@@ -13,7 +13,7 @@ else
     <div class="table-responsive"><table class="table align-middle"><thead><tr><th>Name</th><th>Description</th><th>Status</th><th></th></tr></thead><tbody>
     @foreach (var forum in Model)
     {
-        <tr><td>@forum.Name</td><td>@forum.Description</td><td><span class="badge text-bg-@(forum.Status == Agora.Web.Data.Entities.ForumStatus.Approved ? "success" : forum.Status == Agora.Web.Data.Entities.ForumStatus.Rejected ? "danger" : "warning")">@forum.Status</span></td><td class="text-end"><a class="btn btn-sm btn-outline-secondary" asp-action="Edit" asp-route-id="@forum.Id">Edit</a> <a class="btn btn-sm btn-outline-danger" asp-action="Delete" asp-route-id="@forum.Id">Delete</a></td></tr>
+        <tr><td class="forum-text">@forum.Name</td><td class="forum-text">@forum.Description</td><td><span class="badge text-bg-@(forum.Status == Agora.Web.Data.Entities.ForumStatus.Approved ? "success" : forum.Status == Agora.Web.Data.Entities.ForumStatus.Rejected ? "danger" : "warning")">@forum.Status</span></td><td class="text-end"><a class="btn btn-sm btn-outline-secondary" asp-action="Edit" asp-route-id="@forum.Id">Edit</a> <a class="btn btn-sm btn-outline-danger" asp-action="Delete" asp-route-id="@forum.Id">Delete</a></td></tr>
     }
     </tbody></table></div>
 }

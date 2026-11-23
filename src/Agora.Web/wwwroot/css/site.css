@@ -29,3 +29,37 @@ body {
 .form-floating > .form-control-plaintext:focus::placeholder, .form-floating > .form-control:focus::placeholder {
   text-align: start;
 }
+
+.post-card, .post-details {
+  min-width: 0;
+}
+
+.post-card-heading {
+  gap: 1rem;
+}
+
+.post-title, .post-preview, .post-body {
+  overflow-wrap: anywhere;
+  word-break: break-word;
+}
+
+.post-card .post-title, .post-card .post-preview {
+  min-width: 0;
+}
+
+.post-card-heading small {
+  flex: 0 0 auto;
+}
+
+.post-body {
+  white-space: pre-wrap;
+}
+
+.forum-card, .forum-details {
+  min-width: 0;
+}
+
+.forum-text {
+  overflow-wrap: anywhere;
+  word-break: break-word;
+}

@@ -1,0 +1,7 @@
+using Agora.Web.Data.Entities;
+namespace Agora.Web.Models.Forums;
+public class ForumDetailsViewModel
+{
+    public Forum Forum { get; init; } = null!;
+    public IReadOnlyList<Post> Posts { get; init; } = [];
+}
