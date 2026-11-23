@@ -95,6 +95,30 @@ public class AgoraForumsTests
     }
 
     [Fact]
+    public async Task Exact_forum_limits_are_accepted_and_over_limit_input_is_not_truncated_or_saved()
+    {
+        await using var fixture = await ForumFixture.CreateAsync();
+        var user = await fixture.CreateUserAsync("owner");
+        var maxName = new string('n', 100);
+        var maxDescription = new string('d', 500);
+        var forum = await fixture.Service.CreateAsync(maxName, maxDescription, user.Id);
+
+        Assert.Equal(100, forum.Name.Length);
+        Assert.Equal(500, forum.Description!.Length);
+        var tooLongName = new string('n', 101);
+        var tooLongDescription = new string('d', 501);
+        await Assert.ThrowsAsync<ForumBusinessRuleException>(() => fixture.Service.CreateAsync(tooLongName, "Valid", user.Id));
+        await Assert.ThrowsAsync<ForumBusinessRuleException>(() => fixture.Service.CreateAsync("Different forum", tooLongDescription, user.Id));
+        await Assert.ThrowsAsync<ForumBusinessRuleException>(() => fixture.Service.UpdateDescriptionAsync(forum.Id, tooLongDescription, user.Id));
+
+        var persisted = await fixture.Context.Forums.SingleAsync(item => item.Id == forum.Id);
+        Assert.Equal(maxName, persisted.Name);
+        Assert.Equal(maxDescription, persisted.Description);
+        Assert.Equal(101, tooLongName.Length);
+        Assert.Equal(501, tooLongDescription.Length);
+    }
+
+    [Fact]
     public void Controller_actions_are_authorized_and_forms_cannot_bind_owner_or_status()
     {
         var protectedActions = new[] { "Mine", "Create", "Edit", "Delete", "DeleteConfirmed" };

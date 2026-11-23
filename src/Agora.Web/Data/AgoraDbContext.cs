@@ -37,6 +37,7 @@ public class AgoraDbContext(DbContextOptions<AgoraDbContext> options)
 
         builder.Entity<Post>(entity =>
         {
+            entity.Property(post => post.Title).HasMaxLength(150).IsRequired();
             entity.HasIndex(post => new { post.ForumId, post.CreatedAtUtc });
             entity.HasIndex(post => post.AuthorId);
             entity.HasOne(post => post.Forum).WithMany(forum => forum.Posts)
