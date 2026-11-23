@@ -170,13 +170,13 @@ namespace Agora.Web.Data.Migrations
                         .HasMaxLength(500)
                         .HasColumnType("nvarchar(500)");
 
-                    b.Property<DateTime>("SubmittedAtUtc")
-                        .HasColumnType("datetime2");
-
                     b.Property<string>("Status")
                         .IsRequired()
                         .HasMaxLength(20)
                         .HasColumnType("nvarchar(20)");
+
+                    b.Property<DateTime>("SubmittedAtUtc")
+                        .HasColumnType("datetime2");
 
                     b.Property<DateTime>("UpdatedAtUtc")
                         .HasColumnType("datetime2");
@@ -308,6 +308,10 @@ namespace Agora.Web.Data.Migrations
                     b.HasIndex("PostId");
 
                     b.HasIndex("ReportingUserId");
+
+                    b.HasIndex("ReportingUserId", "PostId")
+                        .IsUnique()
+                        .HasFilter("[Status] = 'Open'");
 
                     b.HasIndex("Status", "CreatedAtUtc");
 

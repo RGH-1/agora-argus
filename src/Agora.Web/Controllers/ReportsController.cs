@@ -39,6 +39,11 @@ public sealed class ReportsController(IReportService reportService, UserManager<
             return RedirectToAction("Details", "Posts", new { id = model.PostId });
         }
         catch (ReportNotFoundOrForbiddenException) { return NotFound(); }
+        catch (OpenReportAlreadyExistsException exception)
+        {
+            ModelState.AddModelError(string.Empty, exception.Message);
+            return await CreateWithValidationAsync(model, reporterId);
+        }
         catch (ReportBusinessRuleException exception)
         {
             ModelState.AddModelError(string.Empty, exception.Message);

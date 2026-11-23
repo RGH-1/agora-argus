@@ -50,6 +50,58 @@ public class AgoraReportsTests
     }
 
     [Fact]
+    public async Task Second_open_report_from_the_same_member_is_rejected_without_creating_a_record()
+    {
+        await using var fixture = await ReportFixture.CreateAsync();
+        var author = await fixture.UserAsync("author"); var reporter = await fixture.UserAsync("reporter");
+        var post = await fixture.PublicPostAsync(author.Id);
+        await fixture.Service.CreateAsync(post.Id, "Other", null, reporter.Id);
+
+        var exception = await Assert.ThrowsAsync<OpenReportAlreadyExistsException>(() => fixture.Service.CreateAsync(post.Id, "Spam or misleading content", null, reporter.Id));
+
+        Assert.Equal(OpenReportAlreadyExistsException.FriendlyMessage, exception.Message);
+        Assert.Single(await fixture.Context.Reports.Where(report => report.PostId == post.Id && report.ReportingUserId == reporter.Id).ToListAsync());
+    }
+
+    [Fact]
+    public async Task Different_members_can_report_the_same_post_and_reviewed_or_dismissed_reports_do_not_block_a_new_open_report()
+    {
+        await using var fixture = await ReportFixture.CreateAsync();
+        var author = await fixture.UserAsync("author"); var first = await fixture.UserAsync("first"); var second = await fixture.UserAsync("second");
+        var sharedPost = await fixture.PublicPostAsync(author.Id);
+        var reviewedPost = await fixture.PublicPostAsync(author.Id);
+        var dismissedPost = await fixture.PublicPostAsync(author.Id);
+
+        await fixture.Service.CreateAsync(sharedPost.Id, "Other", null, first.Id);
+        await fixture.Service.CreateAsync(sharedPost.Id, "Other", null, second.Id);
+        fixture.Context.Reports.AddRange(
+            new Report { PostId = reviewedPost.Id, ReportingUserId = first.Id, Reason = "Reviewed", Status = ReportStatus.Reviewed },
+            new Report { PostId = dismissedPost.Id, ReportingUserId = first.Id, Reason = "Dismissed", Status = ReportStatus.Dismissed });
+        await fixture.Context.SaveChangesAsync();
+
+        var afterReviewed = await fixture.Service.CreateAsync(reviewedPost.Id, "Other", null, first.Id);
+        var afterDismissed = await fixture.Service.CreateAsync(dismissedPost.Id, "Other", null, first.Id);
+
+        Assert.Equal(2, await fixture.Context.Reports.CountAsync(report => report.PostId == sharedPost.Id));
+        Assert.Equal(ReportStatus.Open, afterReviewed.Status);
+        Assert.Equal(ReportStatus.Open, afterDismissed.Status);
+    }
+
+    [Fact]
+    public async Task Filtered_unique_index_rejects_concurrent_open_duplicate_and_repository_handles_it()
+    {
+        await using var fixture = await ReportFixture.CreateAsync();
+        var author = await fixture.UserAsync("author"); var reporter = await fixture.UserAsync("reporter");
+        var post = await fixture.PublicPostAsync(author.Id);
+        await fixture.Service.CreateAsync(post.Id, "Other", null, reporter.Id);
+
+        var result = await fixture.Repository.AddAsync(new Report { PostId = post.Id, ReportingUserId = reporter.Id, Reason = "Race", Status = ReportStatus.Open });
+
+        Assert.Equal(ReportAddResult.DuplicateOpenReport, result);
+        Assert.Single(await fixture.Context.Reports.Where(report => report.PostId == post.Id && report.ReportingUserId == reporter.Id && report.Status == ReportStatus.Open).ToListAsync());
+    }
+
+    [Fact]
     public async Task Own_missing_removed_pending_and_rejected_posts_cannot_be_reported()
     {
         await using var fixture = await ReportFixture.CreateAsync();
@@ -116,8 +168,8 @@ public class AgoraReportsTests
     private sealed class ReportFixture : IAsyncDisposable
     {
         private readonly SqliteConnection connection; private readonly ServiceProvider provider; private readonly IServiceScope scope;
-        private ReportFixture(SqliteConnection connection, ServiceProvider provider) { this.connection = connection; this.provider = provider; scope = provider.CreateScope(); Context = scope.ServiceProvider.GetRequiredService<AgoraDbContext>(); Service = scope.ServiceProvider.GetRequiredService<IReportService>(); }
-        public AgoraDbContext Context { get; } public IReportService Service { get; }
+        private ReportFixture(SqliteConnection connection, ServiceProvider provider) { this.connection = connection; this.provider = provider; scope = provider.CreateScope(); Context = scope.ServiceProvider.GetRequiredService<AgoraDbContext>(); Service = scope.ServiceProvider.GetRequiredService<IReportService>(); Repository = scope.ServiceProvider.GetRequiredService<IReportRepository>(); }
+        public AgoraDbContext Context { get; } public IReportService Service { get; } public IReportRepository Repository { get; }
         public static async Task<ReportFixture> CreateAsync()
         {
             var connection = new SqliteConnection("Data Source=:memory:"); await connection.OpenAsync();

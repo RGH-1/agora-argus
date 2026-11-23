@@ -17,13 +17,14 @@ public sealed class ReportService(IReportRepository reportRepository) : IReportS
     {
         if (string.IsNullOrWhiteSpace(reporterId)) throw new ArgumentException("Reporter ID is required.", nameof(reporterId));
         await GetReportablePostAsync(postId, reporterId, cancellationToken);
+        if (await reportRepository.HasOpenReportAsync(postId, reporterId, cancellationToken)) throw new OpenReportAlreadyExistsException();
         if (!CreateReportViewModel.Categories.Contains(category)) throw new ReportBusinessRuleException("Select a valid report reason.");
         var trimmedDetails = details?.Trim();
         if (trimmedDetails?.Length > CreateReportViewModel.DetailsMaximumLength) throw new ReportBusinessRuleException("Additional details cannot exceed 900 characters.");
         var reason = string.IsNullOrWhiteSpace(trimmedDetails) ? category : $"{category}: {trimmedDetails}";
         if (reason.Length > 1000) throw new ReportBusinessRuleException("Report reason cannot exceed 1000 characters.");
         var report = new Report { PostId = postId, ReportingUserId = reporterId, Reason = reason, Status = ReportStatus.Open, CreatedAtUtc = DateTime.UtcNow };
-        await reportRepository.AddAsync(report, cancellationToken);
+        if (await reportRepository.AddAsync(report, cancellationToken) == ReportAddResult.DuplicateOpenReport) throw new OpenReportAlreadyExistsException();
         return report;
     }
 
@@ -32,3 +33,8 @@ public sealed class ReportService(IReportRepository reportRepository) : IReportS
 
 public sealed class ReportBusinessRuleException(string message) : Exception(message);
 public sealed class ReportNotFoundOrForbiddenException : Exception;
+public sealed class OpenReportAlreadyExistsException : Exception
+{
+    public const string FriendlyMessage = "You have already reported this post. Our moderation team will review it.";
+    public OpenReportAlreadyExistsException() : base(FriendlyMessage) { }
+}
