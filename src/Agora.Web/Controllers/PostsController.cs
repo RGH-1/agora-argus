@@ -7,16 +7,20 @@ using Microsoft.AspNetCore.Mvc;
 
 namespace Agora.Web.Controllers;
 
-public class PostsController(IPostService postService, ICommentService commentService, UserManager<ApplicationUser> userManager) : Controller
+public class PostsController(IPostService postService, ICommentService commentService, ILikesService likesService, UserManager<ApplicationUser> userManager) : Controller
 {
     [AllowAnonymous]
     public async Task<IActionResult> Details(int id)
     {
         var post = await postService.GetPublicByIdAsync(id);
         if (post is null) return NotFound();
-        var comments = await commentService.GetForPublicPostAsync(id);
         var userId = userManager.GetUserId(User);
+        var comments = await commentService.GetForPublicPostAsync(id);
         var user = userId is null ? null : await userManager.FindByIdAsync(userId);
+        var likeStatus = await likesService.GetStatusForPublicPostAsync(id, userId);
+        if (likeStatus is null) return NotFound();
+        ViewData["LikeCount"] = likeStatus.Count;
+        ViewData["IsLiked"] = likeStatus.IsLiked;
         return View(new PostDetailsViewModel
         {
             Post = post,
