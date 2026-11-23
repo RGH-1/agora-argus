@@ -1,6 +1,69 @@
+
 @model Agora.Web.Models.Forums.EditForumViewModel
+
 @{
     ViewData["Title"] = "Edit forum";
 }
-<div class="row justify-content-center"><div class="col-lg-7"><h1>Edit forum</h1><form asp-action="Edit" method="post" data-length-form><input asp-for="Id" type="hidden" /><div asp-validation-summary="ModelOnly" class="text-danger"></div><div class="mb-3"><label asp-for="Description" class="form-label"></label><textarea id="Description" name="Description" class="form-control" rows="5" data-length-field data-limit="500" data-label="Forum description">@Model.Description</textarea><div class="form-text" data-counter-for="Description"></div><span asp-validation-for="Description" class="text-danger" data-length-message-for="Description"></span></div><button class="btn btn-primary" type="submit">Save changes</button> <a class="btn btn-outline-secondary" asp-action="Mine">Cancel</a></form></div></div>
-@section Scripts { <partial name="_ValidationScriptsPartial" /><script src="~/js/post-form.js" asp-append-version="true"></script> }
+
+<div class="row justify-content-center">
+    <div class="col-lg-7">
+        <h1>Edit forum</h1>
+
+        @if (ViewData["ForumStatus"] is Agora.Web.Data.Entities.ForumStatus.Approved)
+        {
+            <div class="alert alert-warning">
+                Changing this description will send your forum back for moderation.
+                Your forum and its posts will be temporarily hidden until approved again.
+            </div>
+        }
+        else if (ViewData["ForumStatus"] is Agora.Web.Data.Entities.ForumStatus.Rejected)
+        {
+            <div class="alert alert-info">
+                Saving a corrected description will resubmit your forum for approval.
+            </div>
+        }
+        else
+        {
+            <div class="alert alert-info">
+                Edits to this forum remain under review.
+            </div>
+        }
+
+        <form asp-action="Edit" method="post" data-length-form>
+            <input asp-for="Id" type="hidden" />
+
+            <div asp-validation-summary="ModelOnly" class="text-danger"></div>
+
+            <div class="mb-3">
+                <label asp-for="Description" class="form-label"></label>
+
+                <textarea id="Description"
+                          name="Description"
+                          class="form-control"
+                          rows="5"
+                          data-length-field
+                          data-limit="500"
+                          data-label="Forum description">@Model.Description</textarea>
+
+                <div class="form-text" data-counter-for="Description"></div>
+
+                <span asp-validation-for="Description"
+                      class="text-danger"
+                      data-length-message-for="Description"></span>
+            </div>
+
+            <button class="btn btn-primary" type="submit">
+                Save changes
+            </button>
+
+            <a class="btn btn-outline-secondary" asp-action="Mine">
+                Cancel
+            </a>
+        </form>
+    </div>
+</div>
+
+@section Scripts {
+    <partial name="_ValidationScriptsPartial" />
+    <script src="~/js/post-form.js" asp-append-version="true"></script>
+}

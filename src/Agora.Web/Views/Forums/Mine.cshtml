@@ -1,19 +1,84 @@
+
 @model IReadOnlyList<Agora.Web.Data.Entities.Forum>
+
 @{
     ViewData["Title"] = "My Forums";
 }
-<div class="d-flex justify-content-between align-items-center mb-3"><h1>My Forums</h1><a class="btn btn-primary" asp-action="Create">Create forum</a></div>
-@if (TempData["StatusMessage"] is string statusMessage) { <div class="alert alert-success" role="alert">@statusMessage</div> }
+
+<div class="d-flex justify-content-between align-items-center mb-3">
+    <h1>My Forums</h1>
+    <a class="btn btn-primary" asp-action="Create">Create forum</a>
+</div>
+
+@if (TempData["StatusMessage"] is string statusMessage)
+{
+    <div class="alert alert-success" role="alert">
+        @statusMessage
+    </div>
+}
+
 @if (Model.Count == 0)
 {
-    <div class="alert alert-info">You have not created any forums yet.</div>
+    <div class="alert alert-info">
+        You have not created any forums yet.
+    </div>
 }
 else
 {
-    <div class="table-responsive"><table class="table align-middle"><thead><tr><th>Name</th><th>Description</th><th>Status</th><th></th></tr></thead><tbody>
-    @foreach (var forum in Model)
-    {
-        <tr><td class="forum-text">@forum.Name</td><td class="forum-text">@forum.Description</td><td><span class="badge text-bg-@(forum.Status == Agora.Web.Data.Entities.ForumStatus.Approved ? "success" : forum.Status == Agora.Web.Data.Entities.ForumStatus.Rejected ? "danger" : "warning")">@forum.Status</span></td><td class="text-end"><a class="btn btn-sm btn-outline-secondary" asp-action="Edit" asp-route-id="@forum.Id">Edit</a> <a class="btn btn-sm btn-outline-danger" asp-action="Delete" asp-route-id="@forum.Id">Delete</a></td></tr>
-    }
-    </tbody></table></div>
+    <div class="table-responsive">
+        <table class="table align-middle">
+            <thead>
+                <tr>
+                    <th>Name</th>
+                    <th>Description</th>
+                    <th>Status</th>
+                    <th></th>
+                </tr>
+            </thead>
+
+            <tbody>
+                @foreach (var forum in Model)
+                {
+                    <tr>
+                        <td class="forum-text">
+                            @forum.Name
+
+                            @if (forum.Status == Agora.Web.Data.Entities.ForumStatus.Rejected
+                                && !string.IsNullOrWhiteSpace(forum.RejectionReason))
+                            {
+                                <div class="mt-2 text-danger small forum-text">
+                                    <strong>Rejection reason:</strong>
+                                    @forum.RejectionReason
+                                </div>
+                            }
+                        </td>
+
+                        <td class="forum-text">
+                            @forum.Description
+                        </td>
+
+                        <td>
+                            <span class="badge text-bg-@(forum.Status == Agora.Web.Data.Entities.ForumStatus.Approved ? "success" : forum.Status == Agora.Web.Data.Entities.ForumStatus.Rejected ? "danger" : "warning")">
+                                @forum.Status
+                            </span>
+                        </td>
+
+                        <td class="text-end">
+                            <a class="btn btn-sm btn-outline-secondary"
+                               asp-action="Edit"
+                               asp-route-id="@forum.Id">
+                                Edit
+                            </a>
+
+                            <a class="btn btn-sm btn-outline-danger"
+                               asp-action="Delete"
+                               asp-route-id="@forum.Id">
+                                Delete
+                            </a>
+                        </td>
+                    </tr>
+                }
+            </tbody>
+        </table>
+    </div>
 }

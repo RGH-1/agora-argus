@@ -25,6 +25,7 @@ public class ForumService(IForumRepository forumRepository) : IForumService
             CreatorId = creatorId,
             Status = ForumStatus.Pending,
             CreatedAtUtc = now,
+            SubmittedAtUtc = now,
             UpdatedAtUtc = now
         };
         var result = await forumRepository.TryCreateAsync(forum, !user.IsPro, cancellationToken);
@@ -49,14 +50,13 @@ public class ForumService(IForumRepository forumRepository) : IForumService
     public Task<Forum?> GetOwnedByIdAsync(int id, string ownerId, CancellationToken cancellationToken = default) =>
         forumRepository.GetOwnedByIdAsync(id, ownerId, cancellationToken);
 
-    public async Task UpdateDescriptionAsync(int id, string description, string ownerId, CancellationToken cancellationToken = default)
+    public async Task<ForumDescriptionUpdateResult> UpdateDescriptionAsync(int id, string description, string ownerId, CancellationToken cancellationToken = default)
     {
         if (string.IsNullOrWhiteSpace(description)) throw new ForumBusinessRuleException("A forum description is required.");
         if (description.Trim().Length > 500) throw new ForumBusinessRuleException("Forum descriptions cannot exceed 500 characters.");
-        var forum = await forumRepository.GetOwnedByIdAsync(id, ownerId, cancellationToken)
-            ?? throw new ForumNotFoundOrForbiddenException();
-        forum.Description = description.Trim();
-        await forumRepository.UpdateAsync(forum, cancellationToken);
+        var result = await forumRepository.UpdateDescriptionIfChangedAsync(id, ownerId, description.Trim(), cancellationToken);
+        if (result == ForumDescriptionUpdateResult.NotFoundOrForbidden) throw new ForumNotFoundOrForbiddenException();
+        return result;
     }
 
     public async Task DeleteAsync(int id, string ownerId, CancellationToken cancellationToken = default)
@@ -66,8 +66,27 @@ public class ForumService(IForumRepository forumRepository) : IForumService
         await forumRepository.DeleteAsync(forum, cancellationToken);
     }
 
+    public Task<IReadOnlyList<Forum>> GetPendingAsync(CancellationToken cancellationToken = default) => forumRepository.GetPendingAsync(cancellationToken);
+
+    public Task<Forum?> GetPendingByIdAsync(int id, CancellationToken cancellationToken = default) => forumRepository.GetPendingByIdAsync(id, cancellationToken);
+
+    public async Task ApproveAsync(int id, CancellationToken cancellationToken = default)
+    {
+        if (!await forumRepository.TryApproveAsync(id, cancellationToken))
+            throw new ForumModerationException("This forum was already reviewed or no longer exists.");
+    }
+
+    public async Task RejectAsync(int id, string reason, CancellationToken cancellationToken = default)
+    {
+        if (string.IsNullOrWhiteSpace(reason)) throw new ForumBusinessRuleException("A rejection reason is required.");
+        if (reason.Trim().Length > 500) throw new ForumBusinessRuleException("Rejection reasons cannot exceed 500 characters.");
+        if (!await forumRepository.TryRejectAsync(id, reason.Trim(), cancellationToken))
+            throw new ForumModerationException("This forum was already reviewed or no longer exists.");
+    }
+
     private static string NormalizeName(string name) => name.Trim().ToUpperInvariant();
 }
 
 public sealed class ForumBusinessRuleException(string message) : Exception(message);
 public sealed class ForumNotFoundOrForbiddenException : Exception;
+public sealed class ForumModerationException(string message) : Exception(message);

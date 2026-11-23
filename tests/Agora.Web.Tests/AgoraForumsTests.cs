@@ -1,4 +1,5 @@
 using Agora.Web.Controllers;
+using ModerationForumsController = Agora.Web.Areas.Moderation.Controllers.ForumsController;
 using System.ComponentModel.DataAnnotations;
 using Agora.Web.Data;
 using Agora.Web.Data.Entities;
@@ -49,6 +50,7 @@ public class AgoraForumsTests
         await Assert.ThrowsAsync<ForumNotFoundOrForbiddenException>(() => fixture.Service.DeleteAsync(forum.Id, other.Id));
 
         await fixture.Service.UpdateDescriptionAsync(forum.Id, "Updated", owner.Id);
+        fixture.Context.ChangeTracker.Clear();
         Assert.Equal("Updated", (await fixture.Context.Forums.SingleAsync(item => item.Id == forum.Id)).Description);
         await fixture.Service.DeleteAsync(forum.Id, owner.Id);
         Assert.Null(await fixture.Context.Forums.FindAsync(forum.Id));
@@ -132,6 +134,164 @@ public class AgoraForumsTests
         Assert.NotNull(deletePost.GetCustomAttributes(typeof(ValidateAntiForgeryTokenAttribute), true).SingleOrDefault());
         var clientFields = typeof(CreateForumViewModel).GetProperties().Concat(typeof(EditForumViewModel).GetProperties()).Select(property => property.Name);
         Assert.DoesNotContain(clientFields, field => field is "CreatorId" or "Status" or "IsPro" or "NormalizedName");
+    }
+
+    [Fact]
+    public async Task Moderation_queue_contains_only_pending_forums_oldest_first()
+    {
+        await using var fixture = await ForumFixture.CreateAsync();
+        var user = await fixture.CreateUserAsync("owner");
+        var newest = await fixture.Service.CreateAsync("Newest", "Description", user.Id);
+        newest.SubmittedAtUtc = DateTime.UtcNow;
+        var oldest = await fixture.Service.CreateAsync("Oldest", "Description", user.Id);
+        oldest.SubmittedAtUtc = DateTime.UtcNow.AddMinutes(-1);
+        var approved = await fixture.Service.CreateAsync("Approved", "Description", user.Id);
+        approved.Status = ForumStatus.Approved;
+        await fixture.Context.SaveChangesAsync();
+
+        var queue = await fixture.Service.GetPendingAsync();
+        Assert.Equal([oldest.Id, newest.Id], queue.Select(forum => forum.Id));
+    }
+
+    [Fact]
+    public async Task Approval_and_rejection_are_pending_only_and_rejection_reason_is_preserved()
+    {
+        await using var fixture = await ForumFixture.CreateAsync();
+        var user = await fixture.CreateUserAsync("owner");
+        var approved = await fixture.Service.CreateAsync("To approve", "Description", user.Id);
+        var rejected = await fixture.Service.CreateAsync("To reject", "Description", user.Id);
+
+        await fixture.Service.ApproveAsync(approved.Id);
+        await fixture.Service.RejectAsync(rejected.Id, "  Please clarify the community purpose.  ");
+
+        fixture.Context.ChangeTracker.Clear();
+        Assert.Equal(ForumStatus.Approved, (await fixture.Context.Forums.FindAsync(approved.Id))!.Status);
+        Assert.NotNull(await fixture.Service.GetPublicByIdAsync(approved.Id));
+        var rejectedForum = await fixture.Context.Forums.FindAsync(rejected.Id);
+        Assert.Equal(ForumStatus.Rejected, rejectedForum!.Status);
+        Assert.Equal("Please clarify the community purpose.", rejectedForum.RejectionReason);
+        await Assert.ThrowsAsync<ForumModerationException>(() => fixture.Service.ApproveAsync(rejected.Id));
+        await Assert.ThrowsAsync<ForumBusinessRuleException>(() => fixture.Service.RejectAsync(approved.Id, " "));
+    }
+
+    [Fact]
+    public void Moderation_actions_are_server_authorized_and_post_protected()
+    {
+        var authorization = typeof(ModerationForumsController).GetCustomAttributes(typeof(AuthorizeAttribute), true).Cast<AuthorizeAttribute>().Single();
+        Assert.Equal("Moderator,Admin", authorization.Roles);
+        foreach (var methodName in new[] { "Approve", "Reject" })
+        {
+            var method = typeof(ModerationForumsController).GetMethods().First(method => method.Name == methodName && method.GetCustomAttributes(typeof(HttpPostAttribute), true).Any());
+            Assert.NotNull(method.GetCustomAttributes(typeof(ValidateAntiForgeryTokenAttribute), true).SingleOrDefault());
+        }
+    }
+
+    [Fact]
+    public async Task Changed_rejected_and_approved_forums_return_to_pending_without_losing_posts()
+    {
+        await using var fixture = await ForumFixture.CreateAsync();
+        var owner = await fixture.CreateUserAsync("owner");
+        var rejected = await fixture.Service.CreateAsync("Rejected lifecycle", "Original", owner.Id);
+        await fixture.Service.RejectAsync(rejected.Id, "Needs clearer scope");
+        fixture.Context.ChangeTracker.Clear();
+
+        var resubmitted = await fixture.Service.UpdateDescriptionAsync(rejected.Id, "Corrected description", owner.Id);
+        fixture.Context.ChangeTracker.Clear();
+        var afterRejectedEdit = await fixture.Context.Forums.FindAsync(rejected.Id);
+        Assert.Equal(ForumDescriptionUpdateResult.Updated, resubmitted);
+        Assert.Equal(ForumStatus.Pending, afterRejectedEdit!.Status);
+        Assert.Null(afterRejectedEdit.RejectionReason);
+        Assert.Contains((await fixture.Service.GetPendingAsync()), forum => forum.Id == rejected.Id);
+
+        await fixture.Service.ApproveAsync(rejected.Id);
+        fixture.Context.Posts.Add(new Post { ForumId = rejected.Id, AuthorId = owner.Id, Content = "Preserved post" });
+        await fixture.Context.SaveChangesAsync();
+        var postCount = await fixture.Context.Posts.CountAsync(post => post.ForumId == rejected.Id);
+        await fixture.Service.UpdateDescriptionAsync(rejected.Id, "Changed after approval", owner.Id);
+        fixture.Context.ChangeTracker.Clear();
+        var afterApprovedEdit = await fixture.Context.Forums.FindAsync(rejected.Id);
+        Assert.Equal(ForumStatus.Pending, afterApprovedEdit!.Status);
+        Assert.Null(await fixture.Service.GetPublicByIdAsync(rejected.Id));
+        Assert.Equal(postCount, await fixture.Context.Posts.CountAsync(post => post.ForumId == rejected.Id));
+        await fixture.Service.ApproveAsync(rejected.Id);
+        Assert.NotNull(await fixture.Service.GetPublicByIdAsync(rejected.Id));
+    }
+
+    [Fact]
+    public async Task Unchanged_or_invalid_description_preserves_lifecycle_state_and_reason()
+    {
+        await using var fixture = await ForumFixture.CreateAsync();
+        var owner = await fixture.CreateUserAsync("owner");
+        var forum = await fixture.Service.CreateAsync("No change", "Saved description", owner.Id);
+        await fixture.Service.RejectAsync(forum.Id, "Specific reason");
+        fixture.Context.ChangeTracker.Clear();
+        var before = await fixture.Context.Forums.FindAsync(forum.Id);
+        var timestamp = before!.UpdatedAtUtc;
+
+        var result = await fixture.Service.UpdateDescriptionAsync(forum.Id, "  Saved description  ", owner.Id);
+        fixture.Context.ChangeTracker.Clear();
+        var unchanged = await fixture.Context.Forums.FindAsync(forum.Id);
+        Assert.Equal(ForumDescriptionUpdateResult.Unchanged, result);
+        Assert.Equal(ForumStatus.Rejected, unchanged!.Status);
+        Assert.Equal("Specific reason", unchanged.RejectionReason);
+        Assert.Equal(timestamp, unchanged.UpdatedAtUtc);
+        await Assert.ThrowsAsync<ForumBusinessRuleException>(() => fixture.Service.UpdateDescriptionAsync(forum.Id, " ", owner.Id));
+        fixture.Context.ChangeTracker.Clear();
+        var invalid = await fixture.Context.Forums.FindAsync(forum.Id);
+        Assert.Equal(ForumStatus.Rejected, invalid!.Status);
+        Assert.Equal("Specific reason", invalid.RejectionReason);
+    }
+
+    [Fact]
+    public async Task Deleting_rejected_forum_frees_free_member_slot_and_atomic_edit_preserves_owner_protection()
+    {
+        await using var fixture = await ForumFixture.CreateAsync();
+        var owner = await fixture.CreateUserAsync("owner");
+        var other = await fixture.CreateUserAsync("other");
+        var first = await fixture.Service.CreateAsync("First", "Description", owner.Id);
+        var second = await fixture.Service.CreateAsync("Second", "Description", owner.Id);
+        var third = await fixture.Service.CreateAsync("Third", "Description", owner.Id);
+        await fixture.Service.RejectAsync(third.Id, "Reason");
+        await Assert.ThrowsAsync<ForumNotFoundOrForbiddenException>(() => fixture.Service.UpdateDescriptionAsync(first.Id, "Hijack", other.Id));
+        await fixture.Service.DeleteAsync(third.Id, owner.Id);
+        var replacement = await fixture.Service.CreateAsync("Replacement", "Description", owner.Id);
+        Assert.Equal(ForumStatus.Pending, replacement.Status);
+        Assert.Equal(3, await fixture.Context.Forums.CountAsync(forum => forum.CreatorId == owner.Id));
+    }
+
+    [Fact]
+    public async Task Submitted_at_tracks_new_and_resubmitted_forums_but_not_pending_or_moderator_updates()
+    {
+        await using var fixture = await ForumFixture.CreateAsync();
+        var owner = await fixture.CreateUserAsync("owner");
+        var forum = await fixture.Service.CreateAsync("Submission clock", "Original", owner.Id);
+        Assert.Equal(forum.CreatedAtUtc, forum.SubmittedAtUtc);
+        var originalSubmission = forum.SubmittedAtUtc;
+
+        await fixture.Service.UpdateDescriptionAsync(forum.Id, "Pending edit", owner.Id);
+        fixture.Context.ChangeTracker.Clear();
+        var pending = await fixture.Context.Forums.FindAsync(forum.Id);
+        Assert.Equal(originalSubmission, pending!.SubmittedAtUtc);
+        await fixture.Service.ApproveAsync(forum.Id);
+        fixture.Context.ChangeTracker.Clear();
+        var approved = await fixture.Context.Forums.FindAsync(forum.Id);
+        Assert.Equal(originalSubmission, approved!.SubmittedAtUtc);
+        await fixture.Service.UpdateDescriptionAsync(forum.Id, "Approved edit", owner.Id);
+        fixture.Context.ChangeTracker.Clear();
+        var resubmitted = await fixture.Context.Forums.FindAsync(forum.Id);
+        Assert.Equal(ForumStatus.Pending, resubmitted!.Status);
+        Assert.True(resubmitted.SubmittedAtUtc >= originalSubmission);
+        var resubmittedAt = resubmitted.SubmittedAtUtc;
+        await fixture.Service.RejectAsync(forum.Id, "Reason");
+        fixture.Context.ChangeTracker.Clear();
+        var rejected = await fixture.Context.Forums.FindAsync(forum.Id);
+        Assert.Equal(resubmittedAt, rejected!.SubmittedAtUtc);
+        var timestamps = (rejected.CreatedAtUtc, rejected.SubmittedAtUtc, rejected.UpdatedAtUtc);
+        await fixture.Service.UpdateDescriptionAsync(forum.Id, "Resubmitted after rejection", owner.Id);
+        fixture.Context.ChangeTracker.Clear();
+        var afterRejectEdit = await fixture.Context.Forums.FindAsync(forum.Id);
+        Assert.True(afterRejectEdit!.SubmittedAtUtc >= timestamps.SubmittedAtUtc);
+        Assert.Equal(timestamps.CreatedAtUtc, afterRejectEdit.CreatedAtUtc);
     }
 
     private sealed class ForumFixture : IAsyncDisposable

@@ -28,6 +28,7 @@ public class AgoraDbContext(DbContextOptions<AgoraDbContext> options)
         {
             entity.Property(forum => forum.Status).HasConversion<string>().HasMaxLength(20);
             entity.Property(forum => forum.NormalizedName).HasMaxLength(100).IsRequired();
+            entity.Property(forum => forum.RejectionReason).HasMaxLength(500);
             entity.HasIndex(forum => forum.Status);
             entity.HasIndex(forum => forum.CreatorId);
             entity.HasIndex(forum => forum.NormalizedName).IsUnique();
