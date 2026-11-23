@@ -1,0 +1,4 @@
+@model Agora.Web.Models.Moderation.RejectForumViewModel
+@{ ViewData["Title"] = "Reject forum"; }
+<div class="row justify-content-center"><div class="col-lg-7"><h1>Reject forum</h1><form asp-action="Reject" method="post" data-rejection-form><input asp-for="ForumId" type="hidden" /><div asp-validation-summary="ModelOnly" class="text-danger"></div><div class="mb-3"><label asp-for="Reason" class="form-label"></label><textarea id="Reason" name="Reason" class="form-control" rows="6" data-rejection-field>@Model.Reason</textarea><div class="form-text" id="ReasonCounter"></div><span asp-validation-for="Reason" class="text-danger" id="ReasonMessage"></span></div><button class="btn btn-danger" type="submit">Reject forum</button> <a class="btn btn-outline-secondary" asp-action="Index">Cancel</a></form></div></div>
+@section Scripts { <partial name="_ValidationScriptsPartial" /><script src="~/js/moderation-rejection.js" asp-append-version="true"></script> }

@@ -1,4 +1,5 @@
 using Agora.Web.Models.Forums;
+using Agora.Web.Repositories;
 using Agora.Web.Services;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Identity;
@@ -56,7 +57,9 @@ public class ForumsController(IForumService forumService, UserManager<Applicatio
     public async Task<IActionResult> Edit(int id)
     {
         var forum = await GetOwnedForumAsync(id);
-        return forum is null ? NotFound() : View(new EditForumViewModel { Id = forum.Id, Description = forum.Description! });
+        if (forum is null) return NotFound();
+        ViewData["ForumStatus"] = forum.Status;
+        return View(new EditForumViewModel { Id = forum.Id, Description = forum.Description! });
     }
 
     [Authorize]
@@ -69,8 +72,14 @@ public class ForumsController(IForumService forumService, UserManager<Applicatio
         if (userId is null) return Challenge();
         try
         {
-            await forumService.UpdateDescriptionAsync(model.Id, model.Description, userId);
-            TempData["StatusMessage"] = "Forum description updated.";
+            var previous = await forumService.GetOwnedByIdAsync(model.Id, userId);
+            if (previous is null) return NotFound();
+            var result = await forumService.UpdateDescriptionAsync(model.Id, model.Description, userId);
+            TempData["StatusMessage"] = result == ForumDescriptionUpdateResult.Unchanged
+                ? "No changes were made to your forum."
+                : previous.Status == ForumStatus.Approved || previous.Status == ForumStatus.Rejected
+                    ? "Your forum was resubmitted for approval."
+                    : "Forum description updated while it remains under review.";
             return RedirectToAction(nameof(Mine));
         }
         catch (ForumNotFoundOrForbiddenException)

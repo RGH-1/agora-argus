@@ -26,29 +26,51 @@
                         <li class="nav-item">
                             <a class="nav-link text-dark" asp-area="" asp-controller="Home" asp-action="Privacy">Privacy</a>
                         </li>
-                        <li class="nav-item"><a class="nav-link text-dark" asp-controller="Forums" asp-action="Index">Forums</a></li>
+                        <li class="nav-item">
+                            <a class="nav-link text-dark"
+                               asp-area=""
+                               asp-controller="Forums"
+                               asp-action="Index">Forums</a>
+                        </li>
                         @if (User.IsInRole("Moderator") || User.IsInRole("Admin"))
                         {
                             <li class="nav-item">
-                                <a class="nav-link text-dark" asp-area="Moderation" asp-controller="Home" asp-action="Index">Moderation</a>
+                                <a class="nav-link text-dark" asp-area="Moderation" asp-controller="Forums" asp-action="Index">Moderation</a>
                             </li>
                         }
                     </ul>
                     <ul class="navbar-nav">
                         @if (User.Identity?.IsAuthenticated == true)
                         {
-                            <li class="nav-item"><a class="nav-link text-dark" asp-controller="Forums" asp-action="Mine">My Forums</a></li>
-                            <li class="nav-item"><a class="nav-link text-dark" asp-controller="Account" asp-action="Profile">Profile</a></li>
                             <li class="nav-item">
-                                <form asp-controller="Account" asp-action="Logout" method="post" class="d-inline">
-                                    <button type="submit" class="btn btn-link nav-link text-dark border-0">Log out</button>
+                                <a class="nav-link text-dark"
+                                   asp-area=""
+                                   asp-controller="Forums"
+                                   asp-action="Mine">My Forums</a>
+                            </li>
+                            <li class="nav-item">
+                                <a class="nav-link text-dark"
+                                   asp-area=""
+                                   asp-controller="Account"
+                                   asp-action="Profile">Profile</a>
+                            </li>
+                            <li class="nav-item">
+                                <form asp-area=""
+                                      asp-controller="Account"
+                                      asp-action="Logout"
+                                      method="post"
+                                      class="d-inline">
+                                    <button type="submit"
+                                            class="btn btn-link nav-link text-dark border-0">
+                                        Log out
+                                    </button>
                                 </form>
                             </li>
                         }
                         else
                         {
-                            <li class="nav-item"><a class="nav-link text-dark" asp-controller="Account" asp-action="Register">Register</a></li>
-                            <li class="nav-item"><a class="nav-link text-dark" asp-controller="Account" asp-action="Login">Log in</a></li>
+                            <li class="nav-item"><a class="nav-link text-dark" asp-area="" asp-controller="Account" asp-action="Register">Register</a></li>
+                            <li class="nav-item"><a class="nav-link text-dark" asp-area="" asp-controller="Account" asp-action="Login">Log in</a></li>
                         }
                     </ul>
                 </div>
