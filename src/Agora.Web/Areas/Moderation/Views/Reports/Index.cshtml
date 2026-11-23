@@ -1,0 +1,13 @@
+@model IReadOnlyList<Agora.Web.Data.Entities.Report>
+@{ ViewData["Title"] = "Report queue"; }
+<h1>Open reports</h1>
+@if (Model.Count == 0)
+{
+    <div class="alert alert-info">There are no open reports.</div>
+}
+else
+{
+    <div class="table-responsive"><table class="table table-striped align-middle"><thead><tr><th>Post</th><th>Reporter</th><th>Reason</th><th>Status</th><th>Submitted</th></tr></thead><tbody>
+    @foreach (var report in Model) { <tr><td><a asp-area="" asp-controller="Posts" asp-action="Details" asp-route-id="@report.PostId">@report.Post.Title</a></td><td>@report.ReportingUser.DisplayName</td><td class="text-break">@report.Reason</td><td>@report.Status</td><td>@report.CreatedAtUtc.ToLocalTime().ToString("g")</td></tr> }
+    </tbody></table></div>
+}

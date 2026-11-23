@@ -15,7 +15,7 @@
       if (message) message.textContent = `${label} is ${overBy} character${overBy === 1 ? "" : "s"} too long.`;
       return false;
     }
-    if (!field.value.trim()) {
+    if (!field.value.trim() && field.dataset.optional !== "true") {
       field.classList.add("is-invalid");
       if (message) message.textContent = `${label} is required.`;
       return false;
