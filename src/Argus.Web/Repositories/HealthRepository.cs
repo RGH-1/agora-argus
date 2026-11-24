@@ -1,4 +1,5 @@
-﻿using Argus.Web.Data;
+﻿using Argus.Contracts;
+using Argus.Web.Data;
 using Argus.Web.Data.Entities;
 using Microsoft.EntityFrameworkCore;
 
@@ -15,6 +16,12 @@ public class HealthRepository(ArgusDbContext dbContext) : IHealthRepository
     public void AddDataPoints(IEnumerable<DataPoint> dataPoints) => dbContext.DataPoints.AddRange(dataPoints);
 
     public void AddError(ErrorEvent errorEvent) => dbContext.ErrorEvents.Add(errorEvent);
+
+    public async Task<IReadOnlyList<ClientApp>> GetLiveClientsAsync(CancellationToken cancellationToken = default) =>
+        await dbContext.ClientApps
+            .Where(app => !app.IsSuspended && (app.Health == HealthStatus.Healthy || app.Health == HealthStatus.Degraded))
+            .ToListAsync(cancellationToken);
+
 
     public Task SaveAsync(CancellationToken cancellationToken = default) => dbContext.SaveChangesAsync(cancellationToken);
 }

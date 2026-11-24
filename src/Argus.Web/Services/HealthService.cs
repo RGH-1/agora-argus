@@ -68,6 +68,27 @@ public class HealthService(
         await health.SaveAsync(cancellationToken);
     }
 
+
+    public async Task MarkSilentClientsDownAsync(DateTime nowUtc, CancellationToken cancellationToken = default)
+    {
+        // Stopped clients aren't loaded: they said goodbye, so their silence is expected (§4.2).
+        var silent = (await health.GetLiveClientsAsync(cancellationToken))
+            .Where(client => nowUtc - client.LastHeartbeatAtUtc > TimeSpan.FromSeconds(client.HeartbeatTimeoutSec))
+            .ToList();
+        if (silent.Count == 0) return;
+
+        foreach (var client in silent)
+        {
+            // A crashed app can't say it crashed: no heartbeat and no ClientStopping means Down.
+            // shortcut: a heartbeat saved between the load above and SaveAsync is overwritten until the next one (≤10 s); add a concurrency token if that matters.
+            client.Health = HealthStatus.Down;
+            logger.LogWarning("Client '{ClientId}' is Down: no heartbeat since {LastHeartbeat:u}", client.ClientId, client.LastHeartbeatAtUtc);
+        }
+        await health.SaveAsync(cancellationToken);
+    }
+
+
+
     /// <summary>Every heartbeat number becomes a data point, so the metric builder can chart it (§4.3).</summary>
     private static IEnumerable<DataPoint> ToDataPoints(ClientApp client, Heartbeat heartbeat)
     {

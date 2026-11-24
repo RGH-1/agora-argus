@@ -9,5 +9,8 @@ public interface IHealthRepository
     void MarkProcessed(Guid messageId);
     void AddDataPoints(IEnumerable<DataPoint> dataPoints);
     void AddError(ErrorEvent errorEvent);
+    /// <summary>Clients the watchdog must check: not suspended and last seen Healthy or Degraded.</summary>
+    Task<IReadOnlyList<ClientApp>> GetLiveClientsAsync(CancellationToken cancellationToken = default);
+
     Task SaveAsync(CancellationToken cancellationToken = default);
 }
