@@ -43,6 +43,18 @@ Run non-integration tests with:
 dotnet test --filter "Category!=Integration"
 ```
 
+## Agora monitoring integration (AA-20)
+
+Agora uses the shared `Argus.Client` SDK to announce startup, emit heartbeats every 10 seconds, and collect HTTP request metrics. Heartbeats include a real SQL Server connectivity check for `AgoraDb`; RabbitMQ outages are handled by the SDK's reconnecting connection and non-throwing sender, so normal Agora requests continue to work while messages are temporarily unavailable.
+
+Set the broker password in **Agora.Web** User Secrets; the tracked configuration deliberately contains no password. The local broker username defaults to `argus`, matching `.env.example`—use the username configured in your local untracked `.env` if it differs.
+
+```powershell
+dotnet user-secrets set "Argus:RabbitMq:Password" "<your-rabbitmq-password>" --project src/Agora.Web
+```
+
+For integration verification, start `rabbitmq` and `sqlserver` with Docker, then run Argus.Web and Agora.Web separately. Confirm the seeded `agora` ClientApps row in ArgusDb receives a recent heartbeat and becomes Healthy; browse Agora to produce metrics. Stop RabbitMQ while Agora remains running and confirm pages still work, then restart RabbitMQ and confirm subsequent heartbeats resume. The Argus homepage is intentionally only a placeholder; use database or message-level verification until its dashboard task is complete.
+
 
 ## Docker Infrastructure (AA-4)
 
