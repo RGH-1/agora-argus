@@ -1,4 +1,5 @@
 using System.ComponentModel.DataAnnotations;
+using Agora.Web.Data.Entities;
 
 namespace Agora.Web.Models.Account;
 
@@ -9,4 +10,5 @@ public class ProfileViewModel
 
     [StringLength(500)]
     public string? Bio { get; set; }
+    public IReadOnlyList<UserWarning> Warnings { get; set; } = [];
 }

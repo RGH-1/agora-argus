@@ -3,6 +3,7 @@ using Agora.Web.Data.Entities;
 using Agora.Web.Data.Seeding;
 using Agora.Web.Repositories;
 using Agora.Web.Services;
+using Argus.Client;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
 
@@ -16,6 +17,9 @@ var connectionString = builder.Configuration.GetConnectionString("AgoraDb")
 
 builder.Services.AddDbContext<AgoraDbContext>(options =>
     options.UseSqlServer(connectionString));
+builder.Services.AddHealthChecks()
+    .AddCheck<AgoraDatabaseHealthCheck>("AgoraDb");
+builder.Services.AddArgus(builder.Configuration.GetSection("Argus"));
 builder.Services
     .AddIdentity<ApplicationUser, IdentityRole>()
     .AddEntityFrameworkStores<AgoraDbContext>()
@@ -62,6 +66,7 @@ if (!app.Environment.IsDevelopment())
     app.UseHsts();
 }
 
+app.UseArgusMetrics();
 app.UseHttpsRedirection();
 app.UseRouting();
 

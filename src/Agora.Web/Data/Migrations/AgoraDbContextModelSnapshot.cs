@@ -221,6 +221,53 @@ namespace Agora.Web.Data.Migrations
                     b.ToTable("Likes");
                 });
 
+            modelBuilder.Entity("Agora.Web.Data.Entities.ModerationAction", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<string>("ActionType")
+                        .IsRequired()
+                        .HasMaxLength(30)
+                        .HasColumnType("nvarchar(30)");
+
+                    b.Property<DateTime>("CreatedAtUtc")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("ModeratorId")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(450)");
+
+                    b.Property<int>("PostId")
+                        .HasColumnType("int");
+
+                    b.Property<string>("Reason")
+                        .HasMaxLength(500)
+                        .HasColumnType("nvarchar(500)");
+
+                    b.Property<int>("ReportId")
+                        .HasColumnType("int");
+
+                    b.Property<string>("TargetAuthorId")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(450)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("ModeratorId");
+
+                    b.HasIndex("PostId");
+
+                    b.HasIndex("TargetAuthorId");
+
+                    b.HasIndex("ReportId", "CreatedAtUtc");
+
+                    b.ToTable("ModerationActions");
+                });
+
             modelBuilder.Entity("Agora.Web.Data.Entities.Post", b =>
                 {
                     b.Property<int>("Id")
@@ -367,6 +414,44 @@ namespace Agora.Web.Data.Migrations
                     b.HasKey("Id");
 
                     b.ToTable("RuleSeedStates");
+                });
+
+            modelBuilder.Entity("Agora.Web.Data.Entities.UserWarning", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<DateTime>("CreatedAtUtc")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("Message")
+                        .IsRequired()
+                        .HasMaxLength(500)
+                        .HasColumnType("nvarchar(500)");
+
+                    b.Property<string>("ModeratorId")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(450)");
+
+                    b.Property<int>("ReportId")
+                        .HasColumnType("int");
+
+                    b.Property<string>("UserId")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(450)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("ModeratorId");
+
+                    b.HasIndex("ReportId");
+
+                    b.HasIndex("UserId", "CreatedAtUtc");
+
+                    b.ToTable("UserWarnings");
                 });
 
             modelBuilder.Entity("Microsoft.AspNetCore.Identity.IdentityRole", b =>
@@ -551,6 +636,37 @@ namespace Agora.Web.Data.Migrations
                     b.Navigation("User");
                 });
 
+            modelBuilder.Entity("Agora.Web.Data.Entities.ModerationAction", b =>
+                {
+                    b.HasOne("Agora.Web.Data.Entities.ApplicationUser", null)
+                        .WithMany()
+                        .HasForeignKey("ModeratorId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("Agora.Web.Data.Entities.Post", "Post")
+                        .WithMany()
+                        .HasForeignKey("PostId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("Agora.Web.Data.Entities.Report", "Report")
+                        .WithMany()
+                        .HasForeignKey("ReportId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("Agora.Web.Data.Entities.ApplicationUser", null)
+                        .WithMany()
+                        .HasForeignKey("TargetAuthorId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.Navigation("Post");
+
+                    b.Navigation("Report");
+                });
+
             modelBuilder.Entity("Agora.Web.Data.Entities.Post", b =>
                 {
                     b.HasOne("Agora.Web.Data.Entities.ApplicationUser", "Author")
@@ -587,6 +703,29 @@ namespace Agora.Web.Data.Migrations
                     b.Navigation("Post");
 
                     b.Navigation("ReportingUser");
+                });
+
+            modelBuilder.Entity("Agora.Web.Data.Entities.UserWarning", b =>
+                {
+                    b.HasOne("Agora.Web.Data.Entities.ApplicationUser", null)
+                        .WithMany()
+                        .HasForeignKey("ModeratorId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("Agora.Web.Data.Entities.Report", "Report")
+                        .WithMany()
+                        .HasForeignKey("ReportId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("Agora.Web.Data.Entities.ApplicationUser", null)
+                        .WithMany()
+                        .HasForeignKey("UserId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.Navigation("Report");
                 });
 
             modelBuilder.Entity("Microsoft.AspNetCore.Identity.IdentityRoleClaim<string>", b =>

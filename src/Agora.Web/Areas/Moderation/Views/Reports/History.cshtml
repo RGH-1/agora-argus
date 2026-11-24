@@ -1,0 +1,4 @@
+@model IReadOnlyList<Agora.Web.Models.Moderation.ModerationHistoryItemViewModel>
+@{ ViewData["Title"] = "Moderation history"; }
+<div class="d-flex justify-content-between align-items-center mb-3"><h1 class="mb-0">Moderation history</h1><a class="btn btn-outline-secondary" asp-action="Index">Back to queue</a></div>
+@if (Model.Count == 0) { <div class="alert alert-info">No moderation actions have been recorded.</div> } else { <div class="table-responsive"><table class="table table-striped"><thead><tr><th>When</th><th>Action</th><th>Report / Post</th><th>Moderator</th><th>Reason</th></tr></thead><tbody>@foreach (var action in Model) { <tr><td>@action.CreatedAtUtc.ToLocalTime().ToString("g")</td><td>@action.ActionLabel</td><td>#@action.ReportId / #@action.PostId</td><td class="text-break">@action.ModeratorDisplayName</td><td class="text-break">@action.Reason</td></tr> }</tbody></table></div> }
