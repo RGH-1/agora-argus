@@ -1,3 +1,5 @@
+using Argus.Contracts;
+using Argus.Web.Consumers;
 using Argus.Web.Data;
 using Argus.Web.Repositories;
 using Argus.Web.Services;
@@ -15,6 +17,20 @@ builder.Services.AddDbContext<ArgusDbContext>(options => options.UseSqlServer(co
 
 builder.Services.AddScoped<IClientAppRepository, ClientAppRepository>();
 builder.Services.AddScoped<IClientAppService, ClientAppService>();
+builder.Services.AddScoped<IHealthRepository, HealthRepository>();
+builder.Services.AddScoped<IHealthService, HealthService>();
+
+// RabbitMQ: the same shared connection the SDK uses. Argus declares only its own queues; each client declares its inbox.
+var rabbitMq = builder.Configuration.GetSection("RabbitMq").Get<RabbitMqOptions>() ?? new RabbitMqOptions();
+if (string.IsNullOrEmpty(rabbitMq.Password))
+    throw new InvalidOperationException("RabbitMq:Password is missing. Configure it in User Secrets for local development.");
+builder.Services.AddSingleton(provider => new ArgusConnection(rabbitMq, "argus",
+        (channel, ct) => ArgusTopology.DeclareIngestAsync(channel, ct),
+        provider.GetRequiredService<ILogger<ArgusConnection>>()
+    ));
+builder.Services.AddHostedService(provider => provider.GetRequiredService<ArgusConnection>());
+builder.Services.AddHostedService<HealthConsumer>();
+builder.Services.AddHostedService<HealthWatchdog>();
 
 var app = builder.Build();
 
