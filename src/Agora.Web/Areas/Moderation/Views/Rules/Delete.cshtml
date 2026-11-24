@@ -1,0 +1,3 @@
+@model Agora.Web.Data.Entities.Rule
+@{ ViewData["Title"] = "Delete rule"; }
+<h1>Delete community rule</h1><div class="alert alert-warning"><p>Are you sure you want to delete <strong>@Model.Title</strong>?</p><div style="white-space:pre-wrap;overflow-wrap:anywhere">@Model.Content</div></div><form asp-action="Delete" method="post"><input type="hidden" name="id" value="@Model.Id" /><button class="btn btn-danger" type="submit">Delete rule</button><a class="btn btn-outline-secondary" asp-action="Index">Cancel</a></form>

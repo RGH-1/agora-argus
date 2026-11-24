@@ -13,6 +13,7 @@ public class AgoraDbContext(DbContextOptions<AgoraDbContext> options)
     public DbSet<Like> Likes => Set<Like>();
     public DbSet<Report> Reports => Set<Report>();
     public DbSet<Rule> Rules => Set<Rule>();
+    public DbSet<RuleSeedState> RuleSeedStates => Set<RuleSeedState>();
 
     protected override void OnModelCreating(ModelBuilder builder)
     {
@@ -82,5 +83,7 @@ public class AgoraDbContext(DbContextOptions<AgoraDbContext> options)
         {
             entity.HasIndex(rule => rule.DisplayOrder).IsUnique();
         });
+
+        builder.Entity<RuleSeedState>(entity => entity.HasKey(state => state.Id));
     }
 }

@@ -72,6 +72,25 @@ public class AgoraDatabaseTests
     }
 
     [Fact]
+    public async Task Development_rule_seed_state_does_not_reset_edits_or_resurrect_deleted_rules()
+    {
+        await using var fixture = await SqliteFixture.CreateAsync();
+        var seeder = fixture.Services.GetRequiredService<DevelopmentDatabaseSeeder>();
+        await seeder.SeedAsync();
+        var rule = await fixture.Context.Rules.OrderBy(item => item.Id).FirstAsync();
+        rule.Title = "Administrator edited rule";
+        await fixture.Context.SaveChangesAsync();
+
+        await seeder.SeedAsync();
+        Assert.Equal("Administrator edited rule", (await fixture.Context.Rules.OrderBy(item => item.Id).FirstAsync()).Title);
+
+        fixture.Context.Rules.RemoveRange(fixture.Context.Rules);
+        await fixture.Context.SaveChangesAsync();
+        await seeder.SeedAsync();
+        Assert.Empty(await fixture.Context.Rules.ToListAsync());
+    }
+
+    [Fact]
     public async Task Forum_service_creates_pending_forum_through_repository()
     {
         await using var fixture = await SqliteFixture.CreateAsync();

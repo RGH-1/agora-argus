@@ -73,9 +73,9 @@ public class DevelopmentDatabaseSeeder(
             }
         }
 
-        foreach (var seedRule in Rules)
+        if (await dbContext.RuleSeedStates.FindAsync([1], cancellationToken) is null)
         {
-            if (!await dbContext.Rules.AnyAsync(rule => rule.Title == seedRule.Title, cancellationToken))
+            foreach (var seedRule in Rules)
             {
                 dbContext.Rules.Add(new Rule
                 {
@@ -86,6 +86,7 @@ public class DevelopmentDatabaseSeeder(
                     UpdatedAtUtc = DateTime.UtcNow
                 });
             }
+            dbContext.RuleSeedStates.Add(new RuleSeedState { Id = 1, InitialRulesSeededAtUtc = DateTime.UtcNow });
         }
 
         await dbContext.SaveChangesAsync(cancellationToken);

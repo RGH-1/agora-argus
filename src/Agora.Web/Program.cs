@@ -40,6 +40,8 @@ builder.Services.AddScoped<ILikesRepository, LikesRepository>();
 builder.Services.AddScoped<ILikesService, LikesService>();
 builder.Services.AddScoped<IReportRepository, ReportRepository>();
 builder.Services.AddScoped<IReportService, ReportService>();
+builder.Services.AddScoped<IRuleRepository, RuleRepository>();
+builder.Services.AddScoped<IRuleService, RuleService>();
 builder.Services.AddScoped<DevelopmentDatabaseSeeder>();
 
 var app = builder.Build();
