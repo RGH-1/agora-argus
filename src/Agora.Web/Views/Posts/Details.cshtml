@@ -1,5 +1,11 @@
 @model Agora.Web.Models.Posts.PostDetailsViewModel
-@{ var post = Model.Post; var contentError = ViewData.ModelState["Content"]?.Errors.FirstOrDefault()?.ErrorMessage; var likeCount = (int?)ViewData["LikeCount"] ?? 0; var isLiked = (bool?)ViewData["IsLiked"] ?? false; ViewData["Title"] = post.Title; }
+@{
+    var post = Model.Post;
+    var contentError = ViewData.ModelState["Content"]?.Errors.FirstOrDefault()?.ErrorMessage;
+    var likeCount = (int?)ViewData["LikeCount"] ?? 0;
+    var isLiked = (bool?)ViewData["IsLiked"] ?? false;
+    ViewData["Title"] = post.Title;
+}
 <p><a asp-controller="Forums" asp-action="Details" asp-route-id="@post.ForumId">&larr; Back to @post.Forum.Name</a></p>
 @if (TempData["StatusMessage"] is string statusMessage) { <div class="alert alert-success" role="alert">@statusMessage</div> }
 <article class="post-details">
@@ -25,6 +31,14 @@
     {
         <a class="btn btn-outline-secondary" asp-action="Edit" asp-route-id="@post.Id">Edit</a>
         <a class="btn btn-outline-danger" asp-action="Delete" asp-route-id="@post.Id">Delete</a>
+    }
+    else if (User.Identity?.IsAuthenticated == true)
+    {
+        <a class="btn btn-outline-warning" asp-controller="Reports" asp-action="Create" asp-route-postId="@post.Id">Report</a>
+    }
+    else
+    {
+        <a class="btn btn-outline-warning" asp-controller="Account" asp-action="Login">Sign in to report</a>
     }
 </article>
 

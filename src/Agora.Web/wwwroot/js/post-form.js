@@ -17,6 +17,11 @@
     }
     if (!field.value.trim()) {
       if (!validateEmpty) return true;
+      if (field.dataset.optional === "true") {
+        field.classList.remove("is-invalid");
+        if (message) message.textContent = "";
+        return true;
+      }
       field.classList.add("is-invalid");
       if (message) message.textContent = `${label} is required.`;
       return false;

@@ -8,7 +8,7 @@ public class Report
     public int PostId { get; set; }
     [Required] public string ReportingUserId { get; set; } = string.Empty;
     [Required, StringLength(1000)] public string Reason { get; set; } = string.Empty;
-    public ReportStatus Status { get; set; } = ReportStatus.Pending;
+    public ReportStatus Status { get; set; } = ReportStatus.Open;
     [StringLength(4000)] public string? AiAssessment { get; set; }
     public decimal? AiConfidence { get; set; }
     public DateTime? AiAssessedAtUtc { get; set; }

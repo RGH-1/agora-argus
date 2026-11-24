@@ -70,6 +70,8 @@ public class AgoraDbContext(DbContextOptions<AgoraDbContext> options)
             entity.Property(report => report.Status).HasConversion<string>().HasMaxLength(20);
             entity.Property(report => report.AiConfidence).HasPrecision(5, 4);
             entity.HasIndex(report => new { report.Status, report.CreatedAtUtc });
+            entity.HasIndex(report => report.ReportingUserId);
+            entity.HasIndex(report => new { report.ReportingUserId, report.PostId }).IsUnique().HasFilter("[Status] = 'Open'");
             entity.HasOne(report => report.Post).WithMany(post => post.Reports)
                 .HasForeignKey(report => report.PostId).OnDelete(DeleteBehavior.Cascade);
             entity.HasOne(report => report.ReportingUser).WithMany(user => user.Reports)
