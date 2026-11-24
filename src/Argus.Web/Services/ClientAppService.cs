@@ -1,16 +1,11 @@
-﻿using System.Text.RegularExpressions;
+﻿using Argus.Contracts;
 using Argus.Web.Data.Entities;
 using Argus.Web.Repositories;
 
 namespace Argus.Web.Services;
 
-public partial class ClientAppService(IClientAppRepository clientAppRepository) : IClientAppService
+public class ClientAppService(IClientAppRepository clientAppRepository) : IClientAppService
 {
-    // The ClientId becomes part of queue names and routing keys ("agora.inbox", "agora.#"),
-    // where '.', '*' and '#' have a meaning, so only lowercase letters, digits and '-' are allowed.
-    [GeneratedRegex("^[a-z0-9-]{1,50}$")]
-    private static partial Regex ValidClientId();
-
     public Task<IReadOnlyList<ClientApp>> GetAllAsync(CancellationToken cancellationToken = default) =>
         clientAppRepository.GetAllAsync(cancellationToken);
 
@@ -20,7 +15,7 @@ public partial class ClientAppService(IClientAppRepository clientAppRepository) 
     public async Task<ClientApp> CreateAsync(string clientId, string name, CancellationToken cancellationToken = default)
     {
         clientId = clientId?.Trim() ?? string.Empty;
-        if (!ValidClientId().IsMatch(clientId))
+        if (!ArgusClientId.IsValid(clientId))
             throw new ArgumentException("ClientId must be 1-50 lowercase letters, digits or '-'.", nameof(clientId));
         if (string.IsNullOrWhiteSpace(name)) throw new ArgumentException("Name is required.", nameof(name));
         if (await clientAppRepository.ExistsAsync(clientId, cancellationToken))

@@ -8,8 +8,9 @@ namespace Argus.Contracts;
 /// <summary>
 /// Sends Argus messages as JSON (design draft §7.3). One instance per app (singleton).
 /// Each publish waits for the broker's confirmation, so when it returns, RabbitMQ has the message.
+/// While RabbitMQ is unreachable it throws straight away instead of waiting: callers log it and move on.
 /// </summary>
-public sealed class ArgusPublisher(IConnection connection, ILogger<ArgusPublisher> logger) : IAsyncDisposable
+public sealed class ArgusPublisher(ArgusConnection connection, ILogger<ArgusPublisher> logger) : IAsyncDisposable
 {
     // A channel must not be used by two threads at once, so publishes take turns.
     private readonly SemaphoreSlim _lock = new(1, 1);
@@ -36,7 +37,8 @@ public sealed class ArgusPublisher(IConnection connection, ILogger<ArgusPublishe
             // Publisher confirms: BasicPublishAsync only returns once RabbitMQ has stored the message.
             if (_channel is not { IsOpen: true })
             {
-                _channel = await connection.CreateChannelAsync(
+                var open = connection.Current ?? throw new InvalidOperationException("Not connected to RabbitMQ yet; the message was not sent.");
+                _channel = await open.CreateChannelAsync(
                     new CreateChannelOptions(publisherConfirmationsEnabled: true, publisherConfirmationTrackingEnabled: true), ct);
             }
 

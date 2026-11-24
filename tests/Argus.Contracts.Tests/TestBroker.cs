@@ -1,20 +1,34 @@
-﻿using RabbitMQ.Client;
+﻿using Microsoft.Extensions.Logging.Abstractions;
+using RabbitMQ.Client;
 
 namespace Argus.Contracts.Tests;
 
 /// <summary>Shared helpers for the integration tests that talk to RabbitMQ on localhost:5672.</summary>
 internal static class TestBroker
 {
-    public static Task<IConnection> ConnectAsync()
+    public static RabbitMqOptions Options => new()
     {
-        var factory = new ConnectionFactory
-        {
-            HostName = "localhost",
-            // The .env.example values; set these environment variables if your .env differs.
-            UserName = Environment.GetEnvironmentVariable("RABBITMQ_USER") ?? "argus",
-            Password = Environment.GetEnvironmentVariable("RABBITMQ_PASSWORD") ?? "change-me",
-        };
-        return factory.CreateConnectionAsync();
+        // The .env.example values; set these environment variables if your .env differs.
+        Username = Environment.GetEnvironmentVariable("RABBITMQ_USER") ?? "argus",
+        Password = Environment.GetEnvironmentVariable("RABBITMQ_PASSWORD") ?? "change-me",
+    };
+
+    /// <summary>A plain connection, for tests that check the topology itself.</summary>
+    public static Task<IConnection> ConnectAsync() => new ConnectionFactory
+    {
+        HostName = Options.Host,
+        UserName = Options.Username,
+        Password = Options.Password,
+    }.CreateConnectionAsync();
+
+    /// <summary>A started ArgusConnection that declared one client's inbox, like the SDK does.</summary>
+    public static async Task<ArgusConnection> StartArgusConnectionAsync(string clientId, RabbitMqOptions? options = null)
+    {
+        var connection = new ArgusConnection(options ?? Options, clientId,
+            (channel, ct) => ArgusTopology.DeclareClientInboxAsync(channel, clientId, ct),
+            NullLogger<ArgusConnection>.Instance);
+        await connection.StartAsync(CancellationToken.None);
+        return connection;
     }
 
     /// <summary>
