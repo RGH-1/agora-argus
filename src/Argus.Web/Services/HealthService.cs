@@ -68,6 +68,8 @@ public class HealthService(
         await health.SaveAsync(cancellationToken);
     }
 
+    public Task<IReadOnlyDictionary<string, decimal>> GetLatestHeartbeatAsync(int clientAppId, CancellationToken cancellationToken = default) =>
+        health.GetLatestHeartbeatAsync(clientAppId, cancellationToken);
 
     public async Task MarkSilentClientsDownAsync(DateTime nowUtc, CancellationToken cancellationToken = default)
     {

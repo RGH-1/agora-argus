@@ -1,14 +1,26 @@
 using System.Diagnostics;
-using Microsoft.AspNetCore.Mvc;
 using Argus.Web.Models;
+using Argus.Web.Models.Status;
+using Argus.Web.Services;
+using Microsoft.AspNetCore.Mvc;
 
 namespace Argus.Web.Controllers;
 
-public class HomeController : Controller
+public class HomeController(IClientAppService clientAppService, IHealthService healthService) : Controller
 {
-    public IActionResult Index()
+    /// <summary>The status board (§4.2): one card per client app.</summary>
+    public async Task<IActionResult> Index(CancellationToken cancellationToken)
     {
-        return View();
+        var board = new List<ClientStatusViewModel>();
+        foreach (var client in await clientAppService.GetAllAsync(cancellationToken)) // only a handful of clients, so one small query each is fine
+        {
+            board.Add(new ClientStatusViewModel
+            {
+                Client = client,
+                Latest = await healthService.GetLatestHeartbeatAsync(client.Id, cancellationToken),
+            });
+        }
+        return View(board);
     }
 
     public IActionResult Privacy()
