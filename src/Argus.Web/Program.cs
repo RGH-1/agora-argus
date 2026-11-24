@@ -30,6 +30,7 @@ builder.Services.AddSingleton(provider => new ArgusConnection(rabbitMq, "argus",
     ));
 builder.Services.AddHostedService(provider => provider.GetRequiredService<ArgusConnection>());
 builder.Services.AddHostedService<HealthConsumer>();
+builder.Services.AddHostedService<HealthWatchdog>();
 
 var app = builder.Build();
 

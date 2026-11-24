@@ -111,4 +111,44 @@ public class HealthServiceTests : IAsyncLifetime
         Assert.Single(await _db.ErrorEvents.ToListAsync());
         Assert.Single(await _db.ProcessedMessages.ToListAsync());
     }
+
+
+    [Theory]
+    [InlineData(29, HealthStatus.Healthy)] // still within agora's 30 s timeout
+    [InlineData(31, HealthStatus.Down)]    // silent too long: crashed or killed
+    public async Task Watchdog_marks_a_silent_client_down(int secondsLater, HealthStatus expected)
+    {
+        await _service.ProcessAsync(new Heartbeat { ClientId = "agora" });
+        var agora = await _db.ClientApps.SingleAsync(app => app.ClientId == "agora");
+
+        await _service.MarkSilentClientsDownAsync(agora.LastHeartbeatAtUtc!.Value.AddSeconds(secondsLater));
+
+        Assert.Equal(expected, agora.Health);
+    }
+
+    [Fact]
+    public async Task Watchdog_leaves_stopped_and_never_seen_clients_alone()
+    {
+        await _service.ProcessAsync(new ClientStarted { ClientId = "agora", Version = "1.0.0" });
+        await _service.ProcessAsync(new ClientStopping { ClientId = "agora" });
+
+        await _service.MarkSilentClientsDownAsync(DateTime.UtcNow.AddHours(1));
+
+        var health = await _db.ClientApps.ToDictionaryAsync(app => app.ClientId, app => app.Health);
+        Assert.Equal(HealthStatus.Stopped, health["agora"]); // said goodbye, so no Down
+        Assert.Equal(HealthStatus.Unknown, health["demo"]);  // never heard from
+    }
+
+    [Fact]
+    public async Task A_heartbeat_after_down_makes_the_client_healthy_again()
+    {
+        await _service.ProcessAsync(new Heartbeat { ClientId = "agora" });
+        await _service.MarkSilentClientsDownAsync(DateTime.UtcNow.AddMinutes(1));
+        var agora = await _db.ClientApps.SingleAsync(app => app.ClientId == "agora");
+        Assert.Equal(HealthStatus.Down, agora.Health);
+
+        await _service.ProcessAsync(new Heartbeat { ClientId = "agora" });
+
+        Assert.Equal(HealthStatus.Healthy, agora.Health);
+    }
 }
