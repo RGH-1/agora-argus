@@ -1,5 +1,5 @@
 (() => {
-  const updateField = (field) => {
+  const updateField = (field, validateEmpty = true) => {
     const limit = Number(field.dataset.limit);
     const label = field.dataset.label;
     const length = field.value.length;
@@ -15,7 +15,13 @@
       if (message) message.textContent = `${label} is ${overBy} character${overBy === 1 ? "" : "s"} too long.`;
       return false;
     }
-    if (!field.value.trim() && field.dataset.optional !== "true") {
+    if (!field.value.trim()) {
+      if (!validateEmpty) return true;
+      if (field.dataset.optional === "true") {
+        field.classList.remove("is-invalid");
+        if (message) message.textContent = "";
+        return true;
+      }
       field.classList.add("is-invalid");
       if (message) message.textContent = `${label} is required.`;
       return false;
@@ -28,7 +34,7 @@
   document.querySelectorAll("[data-post-form], [data-length-form]").forEach((form) => {
     const fields = [...form.querySelectorAll("[data-post-field], [data-length-field]")];
     fields.forEach((field) => {
-      updateField(field);
+      updateField(field, false);
       field.addEventListener("input", () => updateField(field));
     });
     form.addEventListener("submit", (event) => {
