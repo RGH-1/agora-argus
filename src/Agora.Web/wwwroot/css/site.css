@@ -72,3 +72,20 @@ body {
   overflow-wrap: anywhere;
   word-break: break-word;
 }
+
+.rule-item, .rule-text, .rules-management-table td {
+  min-width: 0;
+  overflow-wrap: anywhere;
+  word-break: break-word;
+}
+
+.rule-content, .rule-preview {
+  white-space: pre-wrap;
+}
+
+.rule-preview {
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 3;
+  overflow: hidden;
+}

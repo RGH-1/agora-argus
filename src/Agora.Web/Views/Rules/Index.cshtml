@@ -1,0 +1,5 @@
+@model IReadOnlyList<Agora.Web.Data.Entities.Rule>
+@{ ViewData["Title"] = "Community rules"; }
+<h1>Community rules</h1><p class="text-muted">These rules help keep Agora welcoming and useful for everyone.</p>
+@if (Model.Count == 0) { <div class="alert alert-info">There are currently no community rules.</div> }
+else { <div class="list-group">@foreach (var rule in Model) { <article class="list-group-item rule-item"><h2 class="h5 rule-text">@rule.Title</h2><div class="rule-text rule-content">@rule.Content</div></article> }</div> }
