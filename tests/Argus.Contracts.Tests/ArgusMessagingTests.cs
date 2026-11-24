@@ -18,16 +18,16 @@ public class ArgusMessagingTests : IAsyncLifetime
     private static readonly string Dead = ArgusQueues.ClientDead(TestClient);
     private static readonly string RoutingKey = ArgusRoutingKeys.HealthStatusChanged(TestClient);
 
-    private IConnection _connection = null!;
+    private ArgusConnection _argus = null!;
     private IChannel _channel = null!;
     private ArgusPublisher _publisher = null!;
 
     public async Task InitializeAsync()
     {
-        _connection = await TestBroker.ConnectAsync();
-        _channel = await _connection.CreateChannelAsync();
-        _publisher = new ArgusPublisher(_connection, NullLogger<ArgusPublisher>.Instance);
-        await ArgusTopology.DeclareClientInboxAsync(_channel, TestClient);
+        _argus = await TestBroker.StartArgusConnectionAsync(TestClient);
+        var connection = await _argus.GetAsync(CancellationToken.None).WaitAsync(TimeSpan.FromSeconds(10));
+        _channel = await connection.CreateChannelAsync();
+        _publisher = new ArgusPublisher(_argus, NullLogger<ArgusPublisher>.Instance);
     }
 
     public async Task DisposeAsync()
@@ -36,7 +36,7 @@ public class ArgusMessagingTests : IAsyncLifetime
         await _channel.QueueDeleteAsync(Inbox);
         await _channel.QueueDeleteAsync(Dead);
         await _channel.CloseAsync();
-        await _connection.CloseAsync();
+        await _argus.StopAsync(CancellationToken.None);
     }
 
     [Fact]
@@ -58,7 +58,7 @@ public class ArgusMessagingTests : IAsyncLifetime
     {
         // RunContinuationsAsynchronously: the test must not continue on the consumer's own thread
         var received = new TaskCompletionSource<ArgusMessage>(TaskCreationOptions.RunContinuationsAsynchronously);
-        var consumer = new TestConsumer(_connection, Inbox, message =>
+        var consumer = new TestConsumer(_argus, Inbox, message =>
         {
             received.TrySetResult(message);
             return Task.CompletedTask;
@@ -81,7 +81,7 @@ public class ArgusMessagingTests : IAsyncLifetime
     public async Task Handler_that_always_throws_is_dead_lettered_after_3_attempts()
     {
         var attempts = 0;
-        var consumer = new TestConsumer(_connection, Inbox, _ =>
+        var consumer = new TestConsumer(_argus, Inbox, _ =>
         {
             Interlocked.Increment(ref attempts);
             throw new InvalidOperationException("Simulated handler failure");
@@ -101,7 +101,7 @@ public class ArgusMessagingTests : IAsyncLifetime
     public async Task Unreadable_message_goes_straight_to_the_dead_queue()
     {
         var handled = false;
-        var consumer = new TestConsumer(_connection, Inbox, _ =>
+        var consumer = new TestConsumer(_argus, Inbox, _ =>
         {
             handled = true;
             return Task.CompletedTask;
@@ -116,7 +116,7 @@ public class ArgusMessagingTests : IAsyncLifetime
         Assert.False(handled);
     }
 
-    private sealed class TestConsumer(IConnection connection, string queue, Func<ArgusMessage, Task> handler)
+    private sealed class TestConsumer(ArgusConnection connection, string queue, Func<ArgusMessage, Task> handler)
         : ArgusConsumer(connection, NullLogger.Instance)
     {
         protected override string QueueName => queue;

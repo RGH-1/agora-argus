@@ -11,7 +11,7 @@ namespace Argus.Contracts;
 /// A subclass names its queue and implements HandleAsync; this class does the RabbitMQ part:
 /// prefetch, turning the JSON back into the right message class, ack, retries and dead-lettering.
 /// </summary>
-public abstract class ArgusConsumer(IConnection connection, ILogger logger) : BackgroundService
+public abstract class ArgusConsumer(ArgusConnection connection, ILogger logger) : BackgroundService
 {
     /// <summary>Attempts per message before it goes to the dead queue.</summary>
     public const int MaxAttempts = 3;
@@ -37,8 +37,10 @@ public abstract class ArgusConsumer(IConnection connection, ILogger logger) : Ba
 
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
+        // Waits for the shared connection (RabbitMQ may still be starting).
         // Confirms, so a retry copy is safely stored before the original is acked.
-        _channel = await connection.CreateChannelAsync(
+        var open = await connection.GetAsync(stoppingToken);
+        _channel = await open.CreateChannelAsync(
             new CreateChannelOptions(publisherConfirmationsEnabled: true, publisherConfirmationTrackingEnabled: true),
             stoppingToken);
 
