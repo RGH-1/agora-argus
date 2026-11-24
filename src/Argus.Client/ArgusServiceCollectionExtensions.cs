@@ -19,6 +19,8 @@ public static class ArgusServiceCollectionExtensions
         if (!ArgusClientId.IsValid(options.ClientId))
             throw new InvalidOperationException(
                 $"{section.Path}:ClientId '{options.ClientId}' is invalid: use 1-50 lowercase letters, digits or '-'.");
+        if (options.HeartbeatIntervalSeconds < 1)
+            throw new InvalidOperationException($"{section.Path}:HeartbeatIntervalSeconds must be at least 1.");
         if (string.IsNullOrEmpty(options.RabbitMq.Password))
             throw new InvalidOperationException(
                 $"{section.Path}:RabbitMq:Password is missing. Set it in user-secrets (locally) or as an environment variable (Docker).");
@@ -34,6 +36,13 @@ public static class ArgusServiceCollectionExtensions
             },
             provider.GetRequiredService<ILogger<ArgusConnection>>()));
         services.AddHostedService(provider => provider.GetRequiredService<ArgusConnection>());
+
+
+        // Registered after the connection, so on shutdown they stop first and ClientStopping still goes out.
+        services.AddSingleton<ArgusPublisher>();
+        services.AddSingleton<ArgusSender>();
+        services.AddSingleton<RequestMetrics>();
+        services.AddHostedService<ArgusHeartbeatService>();
 
         return services;
     }
