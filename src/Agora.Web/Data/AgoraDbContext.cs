@@ -12,6 +12,8 @@ public class AgoraDbContext(DbContextOptions<AgoraDbContext> options)
     public DbSet<Comment> Comments => Set<Comment>();
     public DbSet<Like> Likes => Set<Like>();
     public DbSet<Report> Reports => Set<Report>();
+    public DbSet<ModerationAction> ModerationActions => Set<ModerationAction>();
+    public DbSet<UserWarning> UserWarnings => Set<UserWarning>();
     public DbSet<Rule> Rules => Set<Rule>();
 
     protected override void OnModelCreating(ModelBuilder builder)
@@ -81,6 +83,27 @@ public class AgoraDbContext(DbContextOptions<AgoraDbContext> options)
         builder.Entity<Rule>(entity =>
         {
             entity.HasIndex(rule => rule.DisplayOrder).IsUnique();
+        });
+
+        builder.Entity<ModerationAction>(entity =>
+        {
+            entity.Property(action => action.ActionType).HasConversion<string>().HasMaxLength(30);
+            entity.Property(action => action.Reason).HasMaxLength(500);
+            entity.HasIndex(action => new { action.ReportId, action.CreatedAtUtc });
+            entity.HasIndex(action => action.TargetAuthorId);
+            entity.HasOne(action => action.Report).WithMany().HasForeignKey(action => action.ReportId).OnDelete(DeleteBehavior.Restrict);
+            entity.HasOne(action => action.Post).WithMany().HasForeignKey(action => action.PostId).OnDelete(DeleteBehavior.Restrict);
+            entity.HasOne<ApplicationUser>().WithMany().HasForeignKey(action => action.TargetAuthorId).OnDelete(DeleteBehavior.Restrict);
+            entity.HasOne<ApplicationUser>().WithMany().HasForeignKey(action => action.ModeratorId).OnDelete(DeleteBehavior.Restrict);
+        });
+
+        builder.Entity<UserWarning>(entity =>
+        {
+            entity.Property(warning => warning.Message).HasMaxLength(500).IsRequired();
+            entity.HasIndex(warning => new { warning.UserId, warning.CreatedAtUtc });
+            entity.HasOne(warning => warning.Report).WithMany().HasForeignKey(warning => warning.ReportId).OnDelete(DeleteBehavior.Restrict);
+            entity.HasOne<ApplicationUser>().WithMany().HasForeignKey(warning => warning.UserId).OnDelete(DeleteBehavior.Restrict);
+            entity.HasOne<ApplicationUser>().WithMany().HasForeignKey(warning => warning.ModeratorId).OnDelete(DeleteBehavior.Restrict);
         });
     }
 }

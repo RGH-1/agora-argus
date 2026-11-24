@@ -11,5 +11,6 @@
         <div class="mb-3"><label asp-for="Bio" class="form-label"></label><textarea asp-for="Bio" class="form-control" rows="5"></textarea><span asp-validation-for="Bio" class="text-danger"></span></div>
         <button type="submit" class="btn btn-primary">Save changes</button>
     </form>
+    @if (Model.Warnings.Count > 0) { <section class="mt-4" aria-labelledby="warnings-heading"><h2 id="warnings-heading" class="h4">Private moderation warnings</h2>@foreach (var warning in Model.Warnings) { <div class="alert alert-warning"><div style="white-space: pre-wrap; overflow-wrap: anywhere">@warning.Message</div><small>Issued @warning.CreatedAtUtc.ToLocalTime().ToString("g")</small></div> }</section> }
 </div></div>
 @section Scripts { <partial name="_ValidationScriptsPartial" /> }
