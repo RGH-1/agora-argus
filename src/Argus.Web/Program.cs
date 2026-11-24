@@ -35,10 +35,10 @@ builder.Services.AddHostedService<HealthWatchdog>();
 var app = builder.Build();
 
 // Create or update ArgusDb on every start (design draft §8). This also seeds the agora and demo client apps.
-using (var scope = app.Services.CreateScope())
-{
-    await scope.ServiceProvider.GetRequiredService<ArgusDbContext>().Database.MigrateAsync();
-}
+//using (var scope = app.Services.CreateScope())
+//{
+//    await scope.ServiceProvider.GetRequiredService<ArgusDbContext>().Database.MigrateAsync();
+//} //Causing Errors on Db already exists
  
 // Configure the HTTP request pipeline.
 if (!app.Environment.IsDevelopment())
