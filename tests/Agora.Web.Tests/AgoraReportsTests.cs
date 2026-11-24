@@ -67,7 +67,7 @@ public class AgoraReportsTests
     public async Task Different_members_can_report_the_same_post_and_reviewed_or_dismissed_reports_do_not_block_a_new_open_report()
     {
         await using var fixture = await ReportFixture.CreateAsync();
-        var author = await fixture.UserAsync("author"); var first = await fixture.UserAsync("first"); var second = await fixture.UserAsync("second");
+        var author = await fixture.UserAsync("author"); var first = await fixture.UserAsync("first"); var second = await fixture.UserAsync("second"); var moderator = await fixture.UserAsync("moderator");
         var sharedPost = await fixture.PublicPostAsync(author.Id);
         var reviewedPost = await fixture.PublicPostAsync(author.Id);
         var dismissedPost = await fixture.PublicPostAsync(author.Id);
@@ -163,6 +163,102 @@ public class AgoraReportsTests
         var queueController = typeof(Agora.Web.Areas.Moderation.Controllers.ReportsController);
         var authorization = queueController.GetCustomAttributes(typeof(AuthorizeAttribute), true).Cast<AuthorizeAttribute>().Single();
         Assert.Equal("Moderator,Admin", authorization.Roles);
+    }
+
+    [Fact]
+    public async Task Open_queue_is_oldest_first_and_includes_full_post_author_reporter_and_reason()
+    {
+        await using var fixture = await ReportFixture.CreateAsync();
+        var author = await fixture.UserAsync("author"); var reporter = await fixture.UserAsync("reporter");
+        var firstPost = await fixture.PublicPostAsync(author.Id); firstPost.Content = "Complete first post content";
+        var secondPost = await fixture.PublicPostAsync(author.Id);
+        fixture.Context.Reports.AddRange(
+            new Report { PostId = secondPost.Id, ReportingUserId = reporter.Id, Reason = "Later reason", Status = ReportStatus.Open, CreatedAtUtc = DateTime.UtcNow },
+            new Report { PostId = firstPost.Id, ReportingUserId = reporter.Id, Reason = "First reason", Status = ReportStatus.Open, CreatedAtUtc = DateTime.UtcNow.AddMinutes(-1) });
+        await fixture.Context.SaveChangesAsync();
+
+        var queue = await fixture.Service.GetOpenAsync();
+
+        Assert.Equal("First reason", queue[0].Reason);
+        Assert.Equal("Complete first post content", queue[0].Post.Content);
+        Assert.Equal(author.DisplayName, queue[0].Post.Author.DisplayName);
+        Assert.Equal(reporter.DisplayName, queue[0].ReportingUser.DisplayName);
+    }
+
+    [Fact]
+    public async Task Removing_post_closes_related_open_reports_and_saves_an_audit_record()
+    {
+        await using var fixture = await ReportFixture.CreateAsync();
+        var author = await fixture.UserAsync("author"); var first = await fixture.UserAsync("first"); var second = await fixture.UserAsync("second"); var moderator = await fixture.UserAsync("moderator");
+        var post = await fixture.PublicPostAsync(author.Id);
+        var firstReport = await fixture.Service.CreateAsync(post.Id, "Other", null, first.Id);
+        await fixture.Service.CreateAsync(post.Id, "Spam or misleading content", null, second.Id);
+
+        await fixture.Service.ResolveAsync(firstReport.Id, moderator.Id, ModerationActionType.RemovePost, null);
+
+        Assert.True((await fixture.Context.Posts.FindAsync(post.Id))!.IsRemoved);
+        Assert.All(await fixture.Context.Reports.Where(item => item.PostId == post.Id).ToListAsync(), item => Assert.Equal(ReportStatus.Reviewed, item.Status));
+        Assert.Equal(2, await fixture.Context.ModerationActions.CountAsync(item => item.PostId == post.Id && item.ActionType == ModerationActionType.RemovePost));
+        Assert.Null(await fixture.Repository.GetPublicPostAsync(post.Id));
+    }
+
+    [Fact]
+    public async Task Dismiss_warn_and_ban_close_the_target_report_and_persist_their_effects()
+    {
+        await using var fixture = await ReportFixture.CreateAsync();
+        var author = await fixture.UserAsync("author"); var reporter = await fixture.UserAsync("reporter"); var moderator = await fixture.UserAsync("moderator");
+        var dismissPost = await fixture.PublicPostAsync(author.Id); var warnPost = await fixture.PublicPostAsync(author.Id); var banPost = await fixture.PublicPostAsync(author.Id);
+        var dismiss = await fixture.Service.CreateAsync(dismissPost.Id, "Other", null, reporter.Id);
+        var warn = await fixture.Service.CreateAsync(warnPost.Id, "Other", null, reporter.Id);
+        var ban = await fixture.Service.CreateAsync(banPost.Id, "Other", null, reporter.Id);
+
+        await fixture.Service.ResolveAsync(dismiss.Id, moderator.Id, ModerationActionType.DismissReport, null);
+        await fixture.Service.ResolveAsync(warn.Id, moderator.Id, ModerationActionType.WarnAuthor, "Follow the community rules.");
+        await fixture.Service.ResolveAsync(ban.Id, moderator.Id, ModerationActionType.BanAuthor, "Repeated abuse.");
+
+        Assert.Equal(ReportStatus.Dismissed, (await fixture.Context.Reports.FindAsync(dismiss.Id))!.Status);
+        Assert.False((await fixture.Context.Posts.FindAsync(dismissPost.Id))!.IsRemoved);
+        Assert.Single(await fixture.Context.UserWarnings.Where(item => item.ReportId == warn.Id && item.UserId == author.Id).ToListAsync());
+        Assert.True((await fixture.Context.Users.FindAsync(author.Id))!.IsBanned);
+        Assert.Equal(3, await fixture.Context.ModerationActions.CountAsync());
+    }
+
+    [Fact]
+    public async Task Repeated_resolution_is_rejected_without_a_second_audit_record()
+    {
+        await using var fixture = await ReportFixture.CreateAsync();
+        var author = await fixture.UserAsync("author"); var reporter = await fixture.UserAsync("reporter"); var moderator = await fixture.UserAsync("moderator"); var otherModerator = await fixture.UserAsync("other-moderator"); var post = await fixture.PublicPostAsync(author.Id);
+        var report = await fixture.Service.CreateAsync(post.Id, "Other", null, reporter.Id);
+        await fixture.Service.ResolveAsync(report.Id, moderator.Id, ModerationActionType.DismissReport, null);
+
+        await Assert.ThrowsAsync<ReportAlreadyHandledException>(() => fixture.Service.ResolveAsync(report.Id, otherModerator.Id, ModerationActionType.DismissReport, null));
+
+        Assert.Single(await fixture.Context.ModerationActions.ToListAsync());
+    }
+
+    [Fact]
+    public async Task History_uses_moderator_display_name_with_email_and_id_fallbacks_and_human_readable_labels()
+    {
+        await using var fixture = await ReportFixture.CreateAsync();
+        var author = await fixture.UserAsync("author"); var reporter = await fixture.UserAsync("reporter");
+        var displayNameModerator = await fixture.UserAsync("display"); displayNameModerator.DisplayName = "Jamie Moderator";
+        var emailModerator = await fixture.UserAsync("email"); emailModerator.DisplayName = ""; emailModerator.Email = "fallback@agora.local";
+        var idModerator = await fixture.UserAsync("id"); idModerator.DisplayName = ""; idModerator.Email = "";
+        var post = await fixture.PublicPostAsync(author.Id);
+        var report = await fixture.Service.CreateAsync(post.Id, "Other", null, reporter.Id);
+        fixture.Context.ModerationActions.AddRange(
+            new ModerationAction { ReportId = report.Id, PostId = post.Id, TargetAuthorId = author.Id, ModeratorId = displayNameModerator.Id, ActionType = ModerationActionType.DismissReport, CreatedAtUtc = DateTime.UtcNow.AddMinutes(-3) },
+            new ModerationAction { ReportId = report.Id, PostId = post.Id, TargetAuthorId = author.Id, ModeratorId = emailModerator.Id, ActionType = ModerationActionType.RemovePost, CreatedAtUtc = DateTime.UtcNow.AddMinutes(-2) },
+            new ModerationAction { ReportId = report.Id, PostId = post.Id, TargetAuthorId = author.Id, ModeratorId = idModerator.Id, ActionType = ModerationActionType.WarnAuthor, CreatedAtUtc = DateTime.UtcNow.AddMinutes(-1) },
+            new ModerationAction { ReportId = report.Id, PostId = post.Id, TargetAuthorId = author.Id, ModeratorId = displayNameModerator.Id, ActionType = ModerationActionType.BanAuthor, CreatedAtUtc = DateTime.UtcNow });
+        await fixture.Context.SaveChangesAsync();
+
+        var history = await fixture.Service.GetHistoryAsync();
+
+        Assert.Equal(["Ban author", "Warn author", "Remove post", "Dismiss report"], history.Select(item => item.ActionLabel));
+        Assert.Equal("Jamie Moderator", history[3].ModeratorDisplayName);
+        Assert.Equal("fallback@agora.local", history[2].ModeratorDisplayName);
+        Assert.Equal(idModerator.Id, history[1].ModeratorDisplayName);
     }
 
     private sealed class ReportFixture : IAsyncDisposable

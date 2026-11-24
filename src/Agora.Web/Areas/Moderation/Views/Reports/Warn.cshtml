@@ -1,0 +1,4 @@
+@model Agora.Web.Models.Moderation.ModerationReasonViewModel
+@{ ViewData["Title"] = "Warn author"; }
+<h1>Warn author</h1><p class="text-muted">The author will see this private warning on their profile. This reviews the report but does not remove the post.</p><form asp-action="Warn" method="post" class="col-md-8"><input asp-for="ReportId" type="hidden" /><div asp-validation-summary="ModelOnly" class="text-danger"></div><div class="mb-3"><label asp-for="Reason" class="form-label"></label><textarea asp-for="Reason" class="form-control" rows="5"></textarea><span asp-validation-for="Reason" class="text-danger"></span></div><button class="btn btn-warning" type="submit">Issue warning</button><a class="btn btn-outline-secondary" asp-action="Index">Cancel</a></form>
+@section Scripts { <partial name="_ValidationScriptsPartial" /> }

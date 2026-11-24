@@ -1,5 +1,6 @@
 using Agora.Web.Data.Entities;
 using Agora.Web.Models.Account;
+using Agora.Web.Services;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
@@ -9,7 +10,8 @@ namespace Agora.Web.Controllers;
 public class AccountController(
     UserManager<ApplicationUser> userManager,
     SignInManager<ApplicationUser> signInManager,
-    RoleManager<IdentityRole> roleManager) : Controller
+    RoleManager<IdentityRole> roleManager,
+    IReportService? reportService = null) : Controller
 {
     [AllowAnonymous]
     [HttpGet]
@@ -96,7 +98,7 @@ public class AccountController(
     {
         var user = await userManager.GetUserAsync(User);
         if (user is null) return Challenge();
-        return View(new ProfileViewModel { DisplayName = user.DisplayName, Bio = user.Bio });
+        return View(new ProfileViewModel { DisplayName = user.DisplayName, Bio = user.Bio, Warnings = reportService is null ? [] : await reportService.GetWarningsForUserAsync(user.Id) });
     }
 
     [Authorize]

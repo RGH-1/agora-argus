@@ -1,0 +1,4 @@
+@model Agora.Web.Models.Moderation.ModerationReasonViewModel
+@{ ViewData["Title"] = "Ban author"; }
+<h1>Ban author</h1><p class="text-muted">This records the reason, sets the author's existing banned flag, and reviews the report. It does not remove the post.</p><form asp-action="Ban" method="post" class="col-md-8"><input asp-for="ReportId" type="hidden" /><div asp-validation-summary="ModelOnly" class="text-danger"></div><div class="mb-3"><label asp-for="Reason" class="form-label"></label><textarea asp-for="Reason" class="form-control" rows="5"></textarea><span asp-validation-for="Reason" class="text-danger"></span></div><button class="btn btn-danger" type="submit">Ban author</button><a class="btn btn-outline-secondary" asp-action="Index">Cancel</a></form>
+@section Scripts { <partial name="_ValidationScriptsPartial" /> }
