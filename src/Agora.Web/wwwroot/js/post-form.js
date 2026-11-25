@@ -7,7 +7,7 @@
     const counter = document.querySelector(`[data-counter-for="${field.id}"]`);
     const message = document.querySelector(`[data-length-message-for="${field.id}"]`);
     if (counter) {
-      counter.textContent = `${length}/${limit}`;
+      counter.textContent = `${length} / ${limit}`;
       counter.classList.toggle("text-danger", overBy > 0);
     }
     if (overBy > 0) {

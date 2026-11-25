@@ -64,10 +64,6 @@ public class DevelopmentDatabaseSeeder(
                     IsBanned = false
                 };
                 EnsureSuccess(await userManager.CreateAsync(user, password), $"create user '{seedUser.UserName}'");
-            }
-
-            if (!await userManager.IsInRoleAsync(user, seedUser.Role))
-            {
                 EnsureSuccess(await userManager.AddToRoleAsync(user, seedUser.Role),
                     $"assign role '{seedUser.Role}' to '{seedUser.UserName}'");
             }

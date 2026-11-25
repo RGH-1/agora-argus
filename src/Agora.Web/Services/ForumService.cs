@@ -3,7 +3,7 @@ using Agora.Web.Repositories;
 
 namespace Agora.Web.Services;
 
-public class ForumService(IForumRepository forumRepository) : IForumService
+public class ForumService(IForumRepository forumRepository, IBanStatusService? banStatusService = null) : IForumService
 {
     public async Task<Forum> CreateAsync(string name, string? description, string creatorId, CancellationToken cancellationToken = default)
     {
@@ -15,6 +15,7 @@ public class ForumService(IForumRepository forumRepository) : IForumService
 
         var user = await forumRepository.GetUserAsync(creatorId, cancellationToken)
             ?? throw new ForumBusinessRuleException("Your account could not be found.");
+        if (user.IsBanned || banStatusService is not null && await IsBannedAsync(creatorId, cancellationToken)) throw new ForumBusinessRuleException("Banned accounts cannot create forums.");
 
         var now = DateTime.UtcNow;
         var forum = new Forum
@@ -85,6 +86,7 @@ public class ForumService(IForumRepository forumRepository) : IForumService
     }
 
     private static string NormalizeName(string name) => name.Trim().ToUpperInvariant();
+    private async Task<bool> IsBannedAsync(string userId, CancellationToken cancellationToken) { try { if (banStatusService is not null) await banStatusService.EnsureNotBannedAsync(userId, cancellationToken); return false; } catch (BannedUserException) { return true; } }
 }
 
 public sealed class ForumBusinessRuleException(string message) : Exception(message);

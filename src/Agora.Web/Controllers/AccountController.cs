@@ -72,6 +72,11 @@ public class AccountController(
             ModelState.AddModelError(string.Empty, "Invalid username/email or password.");
             return View(model);
         }
+        if (user.IsBanned)
+        {
+            ModelState.AddModelError(string.Empty, "This account has been banned.");
+            return View(model);
+        }
 
         var result = await signInManager.PasswordSignInAsync(user, model.Password, model.RememberMe, lockoutOnFailure: false);
         if (!result.Succeeded)

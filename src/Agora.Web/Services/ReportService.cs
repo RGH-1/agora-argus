@@ -6,7 +6,7 @@ using Microsoft.AspNetCore.Identity;
 
 namespace Agora.Web.Services;
 
-public sealed class ReportService(IReportRepository reportRepository, UserManager<ApplicationUser>? userManager = null) : IReportService
+public sealed class ReportService(IReportRepository reportRepository, UserManager<ApplicationUser>? userManager = null, IBanStatusService? banStatusService = null) : IReportService
 {
     public async Task<Post> GetReportablePostAsync(int postId, string reporterId, CancellationToken cancellationToken = default)
     {
@@ -18,6 +18,7 @@ public sealed class ReportService(IReportRepository reportRepository, UserManage
     public async Task<Report> CreateAsync(int postId, string category, string? details, string reporterId, CancellationToken cancellationToken = default)
     {
         if (string.IsNullOrWhiteSpace(reporterId)) throw new ArgumentException("Reporter ID is required.", nameof(reporterId));
+        if (banStatusService is not null) await banStatusService.EnsureNotBannedAsync(reporterId, cancellationToken);
         await GetReportablePostAsync(postId, reporterId, cancellationToken);
         if (await reportRepository.HasOpenReportAsync(postId, reporterId, cancellationToken)) throw new OpenReportAlreadyExistsException();
         if (!CreateReportViewModel.Categories.Contains(category)) throw new ReportBusinessRuleException("Select a valid report reason.");

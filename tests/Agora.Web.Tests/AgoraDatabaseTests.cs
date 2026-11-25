@@ -72,6 +72,31 @@ public class AgoraDatabaseTests
     }
 
     [Fact]
+    public async Task Development_seeder_never_restores_roles_on_existing_seed_accounts()
+    {
+        await using var fixture = await SqliteFixture.CreateAsync();
+        var seeder = fixture.Services.GetRequiredService<DevelopmentDatabaseSeeder>();
+        var users = fixture.Services.GetRequiredService<UserManager<ApplicationUser>>();
+        await seeder.SeedAsync();
+
+        var moderator = await users.FindByNameAsync("agora.moderator");
+        var member = await users.FindByNameAsync("agora.member1");
+        Assert.NotNull(moderator); Assert.NotNull(member);
+        Assert.True(await users.IsInRoleAsync(moderator!, "Moderator"));
+        Assert.True(await users.IsInRoleAsync(member!, "Member"));
+        Assert.True((await users.RemoveFromRoleAsync(moderator, "Moderator")).Succeeded);
+        Assert.True((await users.RemoveFromRoleAsync(member, "Member")).Succeeded);
+        Assert.True((await users.AddToRoleAsync(member, "Moderator")).Succeeded);
+
+        await seeder.SeedAsync();
+
+        Assert.False(await users.IsInRoleAsync(moderator, "Moderator"));
+        Assert.Empty(await users.GetRolesAsync(moderator));
+        Assert.False(await users.IsInRoleAsync(member, "Member"));
+        Assert.True(await users.IsInRoleAsync(member, "Moderator"));
+    }
+
+    [Fact]
     public async Task Development_rule_seed_state_does_not_reset_edits_or_resurrect_deleted_rules()
     {
         await using var fixture = await SqliteFixture.CreateAsync();

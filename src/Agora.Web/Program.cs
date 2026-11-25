@@ -4,6 +4,7 @@ using Agora.Web.Data.Seeding;
 using Agora.Web.Repositories;
 using Agora.Web.Services;
 using Argus.Client;
+using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
 
@@ -32,7 +33,18 @@ builder.Services.ConfigureApplicationCookie(options =>
 {
     options.LoginPath = "/Account/Login";
     options.AccessDeniedPath = "/Account/AccessDenied";
+    options.Events.OnValidatePrincipal = async context =>
+    {
+        await SecurityStampValidator.ValidatePrincipalAsync(context);
+        if (context.Principal?.Identity?.IsAuthenticated != true) return;
+        var userManager = context.HttpContext.RequestServices.GetRequiredService<UserManager<ApplicationUser>>();
+        var user = await userManager.GetUserAsync(context.Principal);
+        if (user?.IsBanned != true) return;
+        context.RejectPrincipal();
+        await context.HttpContext.SignOutAsync(IdentityConstants.ApplicationScheme);
+    };
 });
+builder.Services.Configure<SecurityStampValidatorOptions>(options => options.ValidationInterval = TimeSpan.Zero);
 
 builder.Services.AddScoped<IForumRepository, ForumRepository>();
 builder.Services.AddScoped<IForumService, ForumService>();
@@ -44,6 +56,9 @@ builder.Services.AddScoped<ILikesRepository, LikesRepository>();
 builder.Services.AddScoped<ILikesService, LikesService>();
 builder.Services.AddScoped<IReportRepository, ReportRepository>();
 builder.Services.AddScoped<IReportService, ReportService>();
+builder.Services.AddScoped<IUserManagementRepository, UserManagementRepository>();
+builder.Services.AddScoped<IUserManagementService, UserManagementService>();
+builder.Services.AddScoped<IBanStatusService, BanStatusService>();
 builder.Services.AddScoped<IRuleRepository, RuleRepository>();
 builder.Services.AddScoped<IRuleService, RuleService>();
 builder.Services.AddScoped<DevelopmentDatabaseSeeder>();

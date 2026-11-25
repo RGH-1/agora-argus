@@ -21,5 +21,6 @@ public sealed class LikesController(ILikesService likesService, UserManager<Appl
             return RedirectToAction("Details", "Posts", new { id = postId });
         }
         catch (LikeNotFoundOrForbiddenException) { return NotFound(); }
+        catch (BannedUserException) { return Forbid(); }
     }
 }
