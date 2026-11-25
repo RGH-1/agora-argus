@@ -5,6 +5,7 @@ using Argus.Contracts.Health;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Diagnostics.HealthChecks;
 using Microsoft.Extensions.Hosting;
+using Microsoft.Extensions.Logging;
 using HealthCheckStatus = Microsoft.Extensions.Diagnostics.HealthChecks.HealthStatus; // not Argus's HealthStatus
 
 namespace Argus.Client;
@@ -19,7 +20,9 @@ public sealed class ArgusHeartbeatService(
     ArgusSender sender,
     RequestMetrics metrics,
     IHostEnvironment environment,
-    IServiceProvider services) : BackgroundService
+    IServiceProvider services,
+    IEnumerable<ArgusGauge> gauges,
+    ILogger<ArgusHeartbeatService> logger) : BackgroundService
 {
     /// <summary>A heartbeat older than this is worthless: RabbitMQ drops it instead of keeping it while Argus is down.</summary>
     public static readonly TimeSpan HeartbeatExpiration = TimeSpan.FromSeconds(30);
@@ -67,6 +70,22 @@ public sealed class ArgusHeartbeatService(
             var report = await healthChecks.CheckHealthAsync(ct);
             heartbeat.DbHealthy = report.Status == HealthCheckStatus.Healthy;
             heartbeat.DbResponseMs = Math.Round(report.TotalDuration.TotalMilliseconds, 1);
+        }
+
+
+        // Gauges may use scoped services such as a DbContext, so they get their own scope.
+        await using var scope = services.CreateAsyncScope();
+        foreach (var gauge in gauges)
+        {
+            try
+            {
+                heartbeat.Gauges[gauge.Name] = await gauge.Read(scope.ServiceProvider);
+            }
+            catch (Exception ex) when (!ct.IsCancellationRequested)
+            {
+                // One broken gauge must not cost the whole heartbeat, or the client would turn Down.
+                logger.LogWarning(ex, "Gauge '{Gauge}' failed and was left out of this heartbeat", gauge.Name);
+            }
         }
 
         return heartbeat;
