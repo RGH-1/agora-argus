@@ -40,7 +40,7 @@ var app = builder.Build();
 using (var scope = app.Services.CreateScope())
 {
     await scope.ServiceProvider.GetRequiredService<ArgusDbContext>().Database.MigrateAsync();
-} //Causing Errors on Db already exists
+}
 
 // Configure the HTTP request pipeline.
 if (!app.Environment.IsDevelopment())
