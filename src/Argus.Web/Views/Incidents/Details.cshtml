@@ -1,0 +1,47 @@
+﻿@using Argus.Web.Data.Entities
+@model Incident
+@{
+    ViewData["Title"] = $"Incident #{Model.Id}";
+}
+
+<p><a asp-action="Index" asp-route-clientId="@Model.ClientApp.ClientId">&larr; @Model.ClientApp.Name incidents</a></p>
+
+<h1 class="h3 mb-3">Incident #@Model.Id <partial name="_IncidentStatusBadge" model="Model.Status" /></h1>
+
+<dl class="row">
+    <dt class="col-sm-3">Client</dt>
+    <dd class="col-sm-9">@Model.ClientApp.Name <small class="text-muted">@Model.ClientApp.ClientId</small></dd>
+
+    <dt class="col-sm-3">Cause</dt>
+    <dd class="col-sm-9">@Model.Cause</dd>
+
+    <dt class="col-sm-3">Reason</dt>
+    <dd class="col-sm-9">@Model.Reason</dd>
+
+    <dt class="col-sm-3">Opened</dt>
+    <dd class="col-sm-9">@Model.OpenedAtUtc.ToString("yyyy-MM-dd HH:mm:ss") UTC</dd>
+
+    <dt class="col-sm-3">Resolved</dt>
+    <dd class="col-sm-9">@(Model.ResolvedAtUtc is { } resolved ? $"{resolved:yyyy-MM-dd HH:mm:ss} UTC" : "—")</dd>
+</dl>
+
+<div class="d-flex gap-2 mb-4">
+    @if (Model.Status == IncidentStatus.Open)
+    {
+        <form asp-action="Acknowledge" asp-route-id="@Model.Id" method="post">
+            <button class="btn btn-warning">Acknowledge</button>
+        </form>
+    }
+    @if (Model.Status != IncidentStatus.Resolved)
+    {
+        <form asp-action="Resolve" asp-route-id="@Model.Id" method="post">
+            <button class="btn btn-success">Resolve</button>
+        </form>
+    }
+</div>
+
+<form asp-action="Notes" asp-route-id="@Model.Id" method="post">
+    <label for="notes" class="form-label fw-semibold">Notes</label>
+    <textarea id="notes" name="notes" class="form-control mb-2" rows="5" maxlength="2000">@Model.Notes</textarea>
+    <button class="btn btn-primary">Save notes</button>
+</form>

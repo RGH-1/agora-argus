@@ -9,4 +9,7 @@ public class ClientStatusViewModel
 
     /// <summary>e.g. "sys.memory_mb" → 182. Empty until the client's first heartbeat.</summary>
     public required IReadOnlyDictionary<string, decimal> Latest { get; init; }
+
+    /// <summary>The client's Open or Acknowledged incident, if any.</summary>
+    public Incident? OpenIncident { get; init; }
 }

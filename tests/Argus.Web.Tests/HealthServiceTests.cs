@@ -1,6 +1,7 @@
 ﻿using Argus.Contracts;
 using Argus.Contracts.Health;
 using Argus.Web.Data;
+using Argus.Web.Data.Entities;
 using Argus.Web.Repositories;
 using Argus.Web.Services;
 using Microsoft.Data.Sqlite;
@@ -20,7 +21,7 @@ public class HealthServiceTests : IAsyncLifetime
         await _connection.OpenAsync();
         _db = new ArgusDbContext(new DbContextOptionsBuilder<ArgusDbContext>().UseSqlite(_connection).Options);
         await _db.Database.EnsureCreatedAsync(); // seeds agora and demo
-        _service = new HealthService(new ClientAppRepository(_db), new HealthRepository(_db), NullLogger<HealthService>.Instance);
+        _service = new HealthService(new ClientAppRepository(_db), new HealthRepository(_db), new IncidentRepository(_db), NullLogger<HealthService>.Instance);
     }
 
     public async Task DisposeAsync()
@@ -35,7 +36,7 @@ public class HealthServiceTests : IAsyncLifetime
         await _service.ProcessAsync(new Heartbeat
         {
             ClientId = "agora",
-            Requests = 12,
+            Requests = 40,
             Errors = 1,
             AvgResponseMs = 40,
             MemoryMb = 180,
@@ -50,7 +51,7 @@ public class HealthServiceTests : IAsyncLifetime
         Assert.NotNull(agora.LastHeartbeatAtUtc);
 
         var points = await _db.DataPoints.ToDictionaryAsync(point => point.Name, point => point.Value);
-        Assert.Equal(12, points["sys.requests"]);
+        Assert.Equal(40, points["sys.requests"]);
         Assert.Equal(1, points["sys.db_healthy"]);
         Assert.Equal(4, points["reports.pending"]);
         Assert.Equal(8, points.Count);

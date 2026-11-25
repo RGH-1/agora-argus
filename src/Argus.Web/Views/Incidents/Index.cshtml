@@ -1,0 +1,44 @@
+﻿@using Argus.Web.Data.Entities
+@model IReadOnlyList<Incident>
+@{
+    var clientId = ViewData["ClientId"] as string;
+    ViewData["Title"] = clientId is null ? "Incidents" : $"Incidents - {clientId}";
+}
+
+<div class="d-flex align-items-baseline gap-3 mb-3">
+    <h1 class="h3 mb-0">Incidents @if (clientId is not null) {
+        <small class="text-muted">@clientId</small>
+    }
+</h1>
+@if (clientId is not null)
+{
+    <a asp-action="Index" asp-route-clientId="">All clients</a>
+}
+</div>
+
+@if (Model.Count == 0)
+{
+    <p class="text-muted">No incidents. Every client has been healthy (or stopped on purpose).</p>
+}
+else
+{
+    <table class="table table-sm align-middle">
+        <thead>
+            <tr><th>Status</th><th>Client</th><th>Cause</th><th>Reason</th><th>Opened (UTC)</th><th>Resolved (UTC)</th><th></th></tr>
+        </thead>
+        <tbody>
+            @foreach (var incident in Model)
+            {
+                <tr>
+                    <td><partial name="_IncidentStatusBadge" model="incident.Status" /></td>
+                    <td>@incident.ClientApp.Name</td>
+                    <td>@incident.Cause</td>
+                    <td>@incident.Reason</td>
+                    <td>@incident.OpenedAtUtc.ToString("yyyy-MM-dd HH:mm:ss")</td>
+                    <td>@(incident.ResolvedAtUtc?.ToString("yyyy-MM-dd HH:mm:ss") ?? "—")</td>
+                    <td><a asp-action="Details" asp-route-id="@incident.Id">Details</a></td>
+                </tr>
+            }
+        </tbody>
+    </table>
+}

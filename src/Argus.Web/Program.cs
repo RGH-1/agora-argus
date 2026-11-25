@@ -19,6 +19,8 @@ builder.Services.AddScoped<IClientAppRepository, ClientAppRepository>();
 builder.Services.AddScoped<IClientAppService, ClientAppService>();
 builder.Services.AddScoped<IHealthRepository, HealthRepository>();
 builder.Services.AddScoped<IHealthService, HealthService>();
+builder.Services.AddScoped<IIncidentRepository, IncidentRepository>();
+builder.Services.AddScoped<IIncidentService, IncidentService>();
 
 // RabbitMQ: the same shared connection the SDK uses. Argus declares only its own queues; each client declares its inbox.
 var rabbitMq = builder.Configuration.GetSection("RabbitMq").Get<RabbitMqOptions>() ?? new RabbitMqOptions();

@@ -86,6 +86,17 @@
                         <dt class="col-6">Avg response</dt>
                         <dd class="col-6">@Show(latest, "sys.avg_response_ms", "ms")</dd>
                     </dl>
+
+                    @if (card.OpenIncident is { } incident)
+                    {
+                        <a asp-controller="Incidents" asp-action="Details" asp-route-id="@incident.Id"
+                           class="alert alert-danger d-block small mt-3 mb-0 py-2 text-decoration-none">
+                            Open incident since @incident.OpenedAtUtc.ToString("HH:mm:ss") UTC: @incident.Reason
+                        </a>
+                    }
+                </div>
+                <div class="card-footer small">
+                    <a asp-controller="Incidents" asp-action="Index" asp-route-clientId="@client.ClientId">Incidents</a>
                 </div>
             </div>
         </div>
