@@ -19,6 +19,8 @@ builder.Services.AddScoped<IClientAppRepository, ClientAppRepository>();
 builder.Services.AddScoped<IClientAppService, ClientAppService>();
 builder.Services.AddScoped<IHealthRepository, HealthRepository>();
 builder.Services.AddScoped<IHealthService, HealthService>();
+builder.Services.AddScoped<IIncidentRepository, IncidentRepository>();
+builder.Services.AddScoped<IIncidentService, IncidentService>();
 
 // RabbitMQ: the same shared connection the SDK uses. Argus declares only its own queues; each client declares its inbox.
 var rabbitMq = builder.Configuration.GetSection("RabbitMq").Get<RabbitMqOptions>() ?? new RabbitMqOptions();
@@ -35,11 +37,11 @@ builder.Services.AddHostedService<HealthWatchdog>();
 var app = builder.Build();
 
 // Create or update ArgusDb on every start (design draft §8). This also seeds the agora and demo client apps.
-//using (var scope = app.Services.CreateScope())
-//{
-//    await scope.ServiceProvider.GetRequiredService<ArgusDbContext>().Database.MigrateAsync();
-//} //Causing Errors on Db already exists
- 
+using (var scope = app.Services.CreateScope())
+{
+    await scope.ServiceProvider.GetRequiredService<ArgusDbContext>().Database.MigrateAsync();
+} //Causing Errors on Db already exists
+
 // Configure the HTTP request pipeline.
 if (!app.Environment.IsDevelopment())
 {

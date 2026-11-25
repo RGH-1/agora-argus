@@ -1,0 +1,8 @@
+﻿@using Argus.Web.Data.Entities
+@model IncidentStatus
+<span class="badge @(Model switch
+      {
+      IncidentStatus.Open => "text-bg-danger",
+      IncidentStatus.Acknowledged => "text-bg-warning",
+      _ => "text-bg-success",
+      })">@Model</span>
