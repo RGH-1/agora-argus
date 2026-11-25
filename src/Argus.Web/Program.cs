@@ -32,6 +32,7 @@ builder.Services.AddSingleton(provider => new ArgusConnection(rabbitMq, "argus",
     ));
 builder.Services.AddHostedService(provider => provider.GetRequiredService<ArgusConnection>());
 builder.Services.AddHostedService<HealthConsumer>();
+builder.Services.AddHostedService<AnalyticsConsumer>();
 builder.Services.AddHostedService<HealthWatchdog>();
 
 var app = builder.Build();
@@ -40,7 +41,7 @@ var app = builder.Build();
 using (var scope = app.Services.CreateScope())
 {
     await scope.ServiceProvider.GetRequiredService<ArgusDbContext>().Database.MigrateAsync();
-} //Causing Errors on Db already exists
+}
 
 // Configure the HTTP request pipeline.
 if (!app.Environment.IsDevelopment())

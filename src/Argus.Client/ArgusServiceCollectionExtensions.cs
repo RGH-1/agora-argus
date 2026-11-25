@@ -11,7 +11,7 @@ public static class ArgusServiceCollectionExtensions
     /// Plugs the app into Argus: <c>builder.Services.AddArgus(builder.Configuration.GetSection("Argus"));</c>
     /// Throws at startup if the settings are wrong; a RabbitMQ outage never stops the app (see ArgusConnection).
     /// </summary>
-    public static IServiceCollection AddArgus(this IServiceCollection services, IConfigurationSection section)
+    public static ArgusBuilder AddArgus(this IServiceCollection services, IConfigurationSection section)
     {
         var options = section.Get<ArgusOptions>()
             ?? throw new InvalidOperationException($"The '{section.Path}' configuration section is missing.");
@@ -43,7 +43,10 @@ public static class ArgusServiceCollectionExtensions
         services.AddSingleton<ArgusSender>();
         services.AddSingleton<RequestMetrics>();
         services.AddHostedService<ArgusHeartbeatService>();
+        services.AddSingleton<RequestMetrics>();
+        services.AddSingleton<IArgusTracker, ArgusTracker>();
+        services.AddHostedService<ArgusHeartbeatService>();
 
-        return services;
+        return new ArgusBuilder(services);
     }
 }

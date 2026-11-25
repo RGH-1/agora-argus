@@ -1,5 +1,6 @@
 ﻿using System.Text.Json;
 using Argus.Contracts;
+using Argus.Contracts.Analytics;
 using Argus.Contracts.Health;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Hosting;
@@ -75,6 +76,67 @@ public class ArgusClientTests
         await channel.QueueDeleteAsync(ArgusQueues.ClientDead(ClientId));
     }
 
+
+    [Fact]
+    public async Task Tracked_events_and_gauges_reach_argus_and_a_broken_gauge_is_skipped()
+    {
+        await using var connection = await new ConnectionFactory
+        {
+            HostName = "127.0.0.1",
+            UserName = Environment.GetEnvironmentVariable("RABBITMQ_USER") ?? "argus",
+            Password = Environment.GetEnvironmentVariable("RABBITMQ_PASSWORD") ?? "change-me",
+        }.CreateConnectionAsync();
+        await using var channel = await connection.CreateChannelAsync();
+        await ArgusTopology.DeclareIngestAsync(channel);
+        var listener = (await channel.QueueDeclareAsync(exclusive: true)).QueueName;
+        await channel.QueueBindAsync(listener, ArgusExchanges.Ingest, ArgusRoutingKeys.AllHealth);
+        await channel.QueueBindAsync(listener, ArgusExchanges.Ingest, ArgusRoutingKeys.AllAnalytics);
+
+        var app = BuildApp();
+        await app.StartAsync();
+        try
+        {
+            await WaitForAsync<ClientStarted>(channel, listener); // connected: events tracked before this are logged and dropped
+            await app.Services.GetRequiredService<IArgusTracker>()
+                .TrackAsync("post.liked", dimension: "Crypto Deals", targetId: "42", targetLabel: "First post");
+
+            var activity = await WaitForAsync<ActivityRecorded>(channel, listener);
+            Assert.Equal(("post.liked", 1m, "Crypto Deals", "42"), (activity.EventType, activity.Value, activity.Dimension, activity.TargetId));
+
+            var heartbeat = await WaitForAsync<Heartbeat>(channel, listener, expiration: "30000");
+            Assert.Equal(4, heartbeat.Gauges["reports.pending"]); // read through a scoped service
+            Assert.False(heartbeat.Gauges.ContainsKey("broken")); // threw, so it was left out, but the heartbeat still went
+        }
+        finally
+        {
+            await app.StopAsync();
+            await app.DisposeAsync();
+        }
+
+        await channel.QueueDeleteAsync(ArgusQueues.Inbox(ClientId));
+        await channel.QueueDeleteAsync(ArgusQueues.ClientDead(ClientId));
+    }
+
+    [Fact]
+    public void Bad_gauge_names_are_rejected_at_startup()
+    {
+        var argus = new ServiceCollection().AddArgus(new ConfigurationBuilder().AddInMemoryCollection(new Dictionary<string, string?>
+        {
+            ["Argus:ClientId"] = ClientId,
+            ["Argus:RabbitMq:Password"] = "not-used",
+        }).Build().GetSection("Argus"));
+
+        argus.AddGauge("reports.pending", (IServiceProvider _) => Task.FromResult(1m));
+        Assert.Throws<ArgumentException>(() => argus.AddGauge("reports.pending", (IServiceProvider _) => Task.FromResult(1m))); // twice
+        Assert.Throws<ArgumentException>(() => argus.AddGauge("sys.memory_mb", (IServiceProvider _) => Task.FromResult(1m)));  // reserved
+    }
+
+    /// <summary>A scoped service, like a DbContext would be.</summary>
+    private sealed class PendingReports
+    {
+        public int Count => 4;
+    }
+
     private static WebApplication BuildApp()
     {
         var builder = WebApplication.CreateBuilder(new WebApplicationOptions { EnvironmentName = "Development" });
@@ -86,7 +148,10 @@ public class ArgusClientTests
             ["Argus:RabbitMq:Username"] = Environment.GetEnvironmentVariable("RABBITMQ_USER") ?? "argus",
             ["Argus:RabbitMq:Password"] = Environment.GetEnvironmentVariable("RABBITMQ_PASSWORD") ?? "change-me",
         });
-        builder.Services.AddArgus(builder.Configuration.GetSection("Argus"));
+        builder.Services.AddArgus(builder.Configuration.GetSection("Argus"))
+            .AddGauge("reports.pending", async (PendingReports reports) => await Task.FromResult(reports.Count))
+            .AddGauge("broken", (IServiceProvider _) => throw new InvalidOperationException("Simulated gauge failure"));
+        builder.Services.AddScoped<PendingReports>();
         builder.Services.AddHealthChecks().AddCheck("db", () => HealthCheckResult.Healthy());
 
         var app = builder.Build();
