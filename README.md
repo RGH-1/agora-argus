@@ -56,6 +56,22 @@ dotnet user-secrets set "Argus:RabbitMq:Password" "<your-rabbitmq-password>" --p
 For integration verification, start `rabbitmq` and `sqlserver` with Docker, then run Argus.Web and Agora.Web separately. Confirm the seeded `agora` ClientApps row in ArgusDb receives a recent heartbeat and becomes Healthy; browse Agora to produce metrics. Stop RabbitMQ while Agora remains running and confirm pages still work, then restart RabbitMQ and confirm subsequent heartbeats resume. The Argus homepage is intentionally only a placeholder; use database or message-level verification until its dashboard task is complete.
 
 
+### Sending events and gauges (AA-24)
+
+```csharp
+// Program.cs: a gauge is read on every heartbeat (its service comes from a fresh scope, so a DbContext is fine)
+builder.Services.AddArgus(builder.Configuration.GetSection("Argus"))
+    .AddGauge("reports.pending", async (AgoraDbContext db) =>
+        await db.Reports.CountAsync(report => report.Status == ReportStatus.Pending));
+
+// Anywhere: inject IArgusTracker and send an event (Value defaults to 1)
+await argus.TrackAsync("post.liked", dimension: forum.Name, targetId: post.Id.ToString(), targetLabel: post.Title);
+await argus.TrackAsync("subscription.purchased", value: 4.99m);
+```
+
+`TrackAsync` never throws because of RabbitMQ: while the broker is down the event is logged and dropped. A gauge that throws is logged and left out of that heartbeat. Gauge names starting with `sys.` are reserved.
+
+
 ## Docker Infrastructure (AA-4)
 
 The project uses Docker Compose to run RabbitMQ and SQL Server 2022.
