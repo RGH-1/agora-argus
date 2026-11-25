@@ -40,6 +40,13 @@ public sealed class ReportRepository(AgoraDbContext dbContext) : IReportReposito
         dbContext.Reports.AsNoTracking().Include(report => report.Post).ThenInclude(post => post.Author)
             .Include(report => report.ReportingUser).FirstOrDefaultAsync(report => report.Id == reportId, cancellationToken);
 
+    public Task<Report?> GetOpenForAiCheckAsync(int reportId, CancellationToken cancellationToken = default) =>
+        dbContext.Reports.AsNoTracking().Include(report => report.Post).FirstOrDefaultAsync(report => report.Id == reportId && report.Status == ReportStatus.Open, cancellationToken);
+
+    public async Task<bool> TrySaveAiAssessmentAsync(int reportId, string assessment, decimal confidence, DateTime assessedAtUtc, CancellationToken cancellationToken = default) =>
+        await dbContext.Reports.Where(report => report.Id == reportId && report.Status == ReportStatus.Open)
+            .ExecuteUpdateAsync(setters => setters.SetProperty(report => report.AiAssessment, assessment).SetProperty(report => report.AiConfidence, confidence).SetProperty(report => report.AiAssessedAtUtc, assessedAtUtc), cancellationToken) == 1;
+
     public async Task<ModerationResolutionResult> ResolveAsync(int reportId, string moderatorId, ModerationActionType actionType, string? reason, CancellationToken cancellationToken = default)
     {
         await using var transaction = await dbContext.Database.BeginTransactionAsync(cancellationToken);

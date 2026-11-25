@@ -74,6 +74,18 @@ public class GeminiClientTests
             () => client.GenerateAsync("Hello"));
     }
 
+    [Theory]
+    [InlineData("{}")]
+    [InlineData("{\"candidates\":[]}")]
+    [InlineData("{\"candidates\":[{\"content\":{\"parts\":[]}}]}")]
+    [InlineData("{\"candidates\":[{\"content\":{\"parts\":[{}]}}]}")]
+    [InlineData("{\"candidates\":[{\"content\":{\"parts\":[{\"text\":\" \"}]}}]}")]
+    public async Task Malformed_provider_envelopes_throw_safe_invalid_operation(string responseBody)
+    {
+        var client = CreateClient(new FakeHandler { ResponseBody = responseBody });
+        await Assert.ThrowsAsync<InvalidOperationException>(() => client.GenerateAsync("Hello"));
+    }
+
     // TEST 4: Real Gemini API request
     // Disabled unless RUN_GEMINI_LIVE_TEST=1.
     [LiveGeminiFact]
@@ -129,6 +141,7 @@ public class GeminiClientTests
         public string? SentApiKey { get; private set; }
         public string? SentBody { get; private set; }
         public string? SentUrl { get; private set; }
+        public string? ResponseBody { get; set; }
 
         protected override async Task<HttpResponseMessage>
             SendAsync(
@@ -148,7 +161,7 @@ public class GeminiClientTests
             SentBody = await request.Content!
                 .ReadAsStringAsync(cancellationToken);
 
-            var json = """
+            var json = ResponseBody ?? """
             {
               "candidates": [
                 {

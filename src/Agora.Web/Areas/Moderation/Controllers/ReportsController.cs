@@ -9,7 +9,7 @@ namespace Agora.Web.Areas.Moderation.Controllers;
 
 [Area("Moderation")]
 [Authorize(Roles = "Moderator,Admin")]
-public sealed class ReportsController(IReportService reportService, UserManager<ApplicationUser> userManager) : Controller
+public sealed class ReportsController(IReportService reportService, IAiReportCheckService aiReportCheckService, UserManager<ApplicationUser> userManager) : Controller
 {
     public async Task<IActionResult> Index() => View(await reportService.GetOpenAsync());
 
@@ -22,6 +22,15 @@ public sealed class ReportsController(IReportService reportService, UserManager<
     [HttpPost]
     [ValidateAntiForgeryToken]
     public Task<IActionResult> Dismiss(int reportId) => ResolveAsync(reportId, ModerationActionType.DismissReport, null, "Report dismissed.");
+
+    [HttpPost]
+    [ValidateAntiForgeryToken]
+    public async Task<IActionResult> AiCheck(int reportId)
+    {
+        var result = await aiReportCheckService.CheckAsync(reportId, HttpContext.RequestAborted);
+        TempData[result.Succeeded ? "StatusMessage" : "ErrorMessage"] = result.Message;
+        return RedirectToAction(nameof(Index));
+    }
 
     [HttpGet]
     public IActionResult Warn(int reportId) => View(new ModerationReasonViewModel { ReportId = reportId });
