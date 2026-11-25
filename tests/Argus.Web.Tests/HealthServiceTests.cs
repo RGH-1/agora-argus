@@ -174,4 +174,50 @@ public class HealthServiceTests : IAsyncLifetime
         Assert.False(latest.ContainsKey("reports.pending"));     // gauges aren't board numbers
         Assert.Empty(await _service.GetLatestHeartbeatAsync(2)); // demo's numbers stay separate
     }
+
+
+    [Theory]
+    [InlineData(800, 0, 0)] // slow database: agora's limit is 500 ms
+    [InlineData(10, 20, 2)] // 10% errors: agora's limit is 5%
+    public async Task Slow_database_or_high_error_rate_is_degraded_and_opens_an_incident(double dbMs, int requests, int errors)
+    {
+        await _service.ProcessAsync(new Heartbeat { ClientId = "agora", DbHealthy = true, DbResponseMs = 3 });
+        await _service.ProcessAsync(new Heartbeat { ClientId = "agora", DbHealthy = true, DbResponseMs = dbMs, Requests = requests, Errors = errors });
+
+        var agora = await _db.ClientApps.SingleAsync(app => app.ClientId == "agora");
+        Assert.Equal(HealthStatus.Degraded, agora.Health);
+        var incident = await _db.Incidents.SingleAsync();
+        Assert.Equal((IncidentStatus.Open, HealthStatus.Degraded), (incident.Status, incident.Cause));
+    }
+
+    [Fact]
+    public async Task Recovery_closes_the_incident_and_degraded_then_down_keeps_one()
+    {
+        await _service.ProcessAsync(new Heartbeat { ClientId = "agora", DbHealthy = false });
+        await _service.MarkSilentClientsDownAsync(DateTime.UtcNow.AddMinutes(1)); // Degraded → Down: same outage
+
+        var incident = await _db.Incidents.SingleAsync();
+        Assert.Equal("Database check failed", incident.Reason);
+
+        await _service.ProcessAsync(new ClientStarted { ClientId = "agora", Version = "1.0.0" }); // restarted → Healthy
+
+        Assert.Equal(IncidentStatus.Resolved, incident.Status);
+        Assert.NotNull(incident.ResolvedAtUtc);
+    }
+
+    [Fact]
+    public async Task Down_opens_an_incident_but_stopped_never_does()
+    {
+        await _service.ProcessAsync(new Heartbeat { ClientId = "agora" });
+        await _service.ProcessAsync(new ClientStopping { ClientId = "agora" });
+        await _service.MarkSilentClientsDownAsync(DateTime.UtcNow.AddHours(1));
+        Assert.Empty(await _db.Incidents.ToListAsync());
+
+        await _service.ProcessAsync(new ClientStarted { ClientId = "agora", Version = "1.0.0" });
+        await _service.MarkSilentClientsDownAsync(DateTime.UtcNow.AddHours(1)); // crashed this time
+
+        var incident = await _db.Incidents.SingleAsync();
+        Assert.Equal(HealthStatus.Down, incident.Cause);
+        Assert.Equal("No heartbeat for over 30 s", incident.Reason);
+    }
 }
