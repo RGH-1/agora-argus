@@ -1,4 +1,5 @@
 ﻿using Argus.Contracts;
+using Argus.Contracts.Analytics;
 using Argus.Contracts.Health;
 using Argus.Web.Data;
 using Argus.Web.Data.Entities;
@@ -219,5 +220,38 @@ public class HealthServiceTests : IAsyncLifetime
         var incident = await _db.Incidents.SingleAsync();
         Assert.Equal(HealthStatus.Down, incident.Cause);
         Assert.Equal("No heartbeat for over 30 s", incident.Reason);
+    }
+
+
+    [Fact]
+    public async Task Activity_becomes_a_data_point()
+    {
+        var occurred = DateTimeOffset.UtcNow.AddSeconds(-5);
+        await _service.ProcessAsync(new ActivityRecorded
+        {
+            ClientId = "agora",
+            EventType = "post.liked",
+            Dimension = "Crypto Deals",
+            TargetId = "42",
+            TargetLabel = "First post",
+            ActorId = "user-7",
+            OccurredAt = occurred,
+        });
+
+        var point = await _db.DataPoints.SingleAsync();
+        Assert.Equal(("post.liked", 1m, "Crypto Deals", "42", "First post", "user-7"),
+            (point.Name, point.Value, point.Dimension, point.TargetId, point.TargetLabel, point.ActorId));
+        Assert.Equal(occurred.UtcDateTime, point.TimestampUtc); // when it happened in the client
+    }
+
+    [Theory]
+    [InlineData("sys.errors")] // reserved for heartbeat numbers
+    [InlineData(" ")]
+    public async Task Activity_with_an_invalid_name_is_dropped(string eventType)
+    {
+        await _service.ProcessAsync(new ActivityRecorded { ClientId = "agora", EventType = eventType });
+
+        Assert.Empty(await _db.DataPoints.ToListAsync());
+        Assert.Single(await _db.ProcessedMessages.ToListAsync()); // acked, not retried
     }
 }
