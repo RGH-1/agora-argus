@@ -151,4 +151,26 @@ public class HealthServiceTests : IAsyncLifetime
 
         Assert.Equal(HealthStatus.Healthy, agora.Health);
     }
+
+
+    [Fact]
+    public async Task Latest_heartbeat_numbers_are_returned_for_the_status_board()
+    {
+        Assert.Empty(await _service.GetLatestHeartbeatAsync(1)); // agora (Id 1) hasn't sent anything yet
+
+        await _service.ProcessAsync(new Heartbeat { ClientId = "agora", MemoryMb = 100, OccurredAt = DateTimeOffset.UtcNow.AddSeconds(-10) });
+        await _service.ProcessAsync(new Heartbeat
+        {
+            ClientId = "agora",
+            MemoryMb = 180,
+            DbHealthy = true,
+            Gauges = new() { ["reports.pending"] = 4 },
+        });
+
+        var latest = await _service.GetLatestHeartbeatAsync(1);
+        Assert.Equal(180, latest["sys.memory_mb"]);              // the newer heartbeat wins
+        Assert.Equal(1, latest["sys.db_healthy"]);
+        Assert.False(latest.ContainsKey("reports.pending"));     // gauges aren't board numbers
+        Assert.Empty(await _service.GetLatestHeartbeatAsync(2)); // demo's numbers stay separate
+    }
 }
