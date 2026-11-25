@@ -1,11 +1,12 @@
 ﻿using Argus.Contracts;
+using Argus.Contracts.Analytics;
 using Argus.Contracts.Health;
 using Argus.Web.Data.Entities;
 using Argus.Web.Repositories;
 
 namespace Argus.Web.Services;
 
-/// <summary>What Argus does with each health message (design draft §4.2 and §7.2).</summary>
+/// <summary>What Argus does with each message a client sends (design draft §4.2, §4.3 and §7.2).</summary>
 public class HealthService(
     IClientAppRepository clientApps,
     IHealthRepository health,
@@ -61,8 +62,29 @@ public class HealthService(
                 });
                 break;
 
+            case ActivityRecorded activity:
+                // sys.* is reserved for heartbeat numbers: an event must not mix into what the status board shows.
+                if (string.IsNullOrWhiteSpace(activity.EventType) || activity.EventType.StartsWith("sys."))
+                {
+                    logger.LogWarning("Ignored ActivityRecorded with invalid name '{EventType}' from '{ClientId}'",
+                        activity.EventType, client.ClientId);
+                    break; // still marked processed below: retrying won't make it valid
+                }
+                health.AddDataPoints([new DataPoint
+                {
+                    ClientApp = client,
+                    Name = Cut(activity.EventType, 100),
+                    Value = activity.Value,
+                    Dimension = CutOrNull(activity.Dimension, 200),
+                    TargetId = CutOrNull(activity.TargetId, 100),
+                    TargetLabel = CutOrNull(activity.TargetLabel, 200),
+                    ActorId = CutOrNull(activity.ActorId, 100),
+                    TimestampUtc = activity.OccurredAt.UtcDateTime, // when it happened in the client, so charts show the real time
+                }]);
+                break;
+
             default:
-                logger.LogWarning("Ignored unexpected {Type} on the health queue", message.GetType().Name);
+                logger.LogWarning("Ignored unexpected {Type} from '{ClientId}'", message.GetType().Name, client.ClientId);
                 return;
         }
 
@@ -167,4 +189,5 @@ public class HealthService(
 
     // Columns have a max length; a client could send longer text.
     private static string Cut(string text, int maxLength) => text.Length <= maxLength ? text : text[..maxLength];
+    private static string? CutOrNull(string? text, int maxLength) => text is null ? null : Cut(text, maxLength);
 }
