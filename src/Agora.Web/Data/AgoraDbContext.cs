@@ -14,6 +14,7 @@ public class AgoraDbContext(DbContextOptions<AgoraDbContext> options)
     public DbSet<Report> Reports => Set<Report>();
     public DbSet<ModerationAction> ModerationActions => Set<ModerationAction>();
     public DbSet<UserWarning> UserWarnings => Set<UserWarning>();
+    public DbSet<UserBanAction> UserBanActions => Set<UserBanAction>();
     public DbSet<Rule> Rules => Set<Rule>();
     public DbSet<RuleSeedState> RuleSeedStates => Set<RuleSeedState>();
 
@@ -107,6 +108,14 @@ public class AgoraDbContext(DbContextOptions<AgoraDbContext> options)
             entity.HasOne(warning => warning.Report).WithMany().HasForeignKey(warning => warning.ReportId).OnDelete(DeleteBehavior.Restrict);
             entity.HasOne<ApplicationUser>().WithMany().HasForeignKey(warning => warning.UserId).OnDelete(DeleteBehavior.Restrict);
             entity.HasOne<ApplicationUser>().WithMany().HasForeignKey(warning => warning.ModeratorId).OnDelete(DeleteBehavior.Restrict);
+        });
+
+        builder.Entity<UserBanAction>(entity =>
+        {
+            entity.Property(action => action.Reason).HasMaxLength(500).IsRequired();
+            entity.HasIndex(action => new { action.TargetUserId, action.CreatedAtUtc });
+            entity.HasOne<ApplicationUser>().WithMany().HasForeignKey(action => action.ActorId).OnDelete(DeleteBehavior.Restrict);
+            entity.HasOne<ApplicationUser>().WithMany().HasForeignKey(action => action.TargetUserId).OnDelete(DeleteBehavior.Restrict);
         });
     }
 }

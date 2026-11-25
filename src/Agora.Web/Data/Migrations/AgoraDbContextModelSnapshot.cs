@@ -416,6 +416,42 @@ namespace Agora.Web.Data.Migrations
                     b.ToTable("RuleSeedStates");
                 });
 
+            modelBuilder.Entity("Agora.Web.Data.Entities.UserBanAction", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<string>("ActorId")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(450)");
+
+                    b.Property<DateTime>("CreatedAtUtc")
+                        .HasColumnType("datetime2");
+
+                    b.Property<bool>("IsBan")
+                        .HasColumnType("bit");
+
+                    b.Property<string>("Reason")
+                        .IsRequired()
+                        .HasMaxLength(500)
+                        .HasColumnType("nvarchar(500)");
+
+                    b.Property<string>("TargetUserId")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(450)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("ActorId");
+
+                    b.HasIndex("TargetUserId", "CreatedAtUtc");
+
+                    b.ToTable("UserBanActions");
+                });
+
             modelBuilder.Entity("Agora.Web.Data.Entities.UserWarning", b =>
                 {
                     b.Property<int>("Id")
@@ -703,6 +739,21 @@ namespace Agora.Web.Data.Migrations
                     b.Navigation("Post");
 
                     b.Navigation("ReportingUser");
+                });
+
+            modelBuilder.Entity("Agora.Web.Data.Entities.UserBanAction", b =>
+                {
+                    b.HasOne("Agora.Web.Data.Entities.ApplicationUser", null)
+                        .WithMany()
+                        .HasForeignKey("ActorId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("Agora.Web.Data.Entities.ApplicationUser", null)
+                        .WithMany()
+                        .HasForeignKey("TargetUserId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
                 });
 
             modelBuilder.Entity("Agora.Web.Data.Entities.UserWarning", b =>

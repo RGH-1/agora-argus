@@ -53,6 +53,7 @@ public class PostsController(IPostService postService, ICommentService commentSe
             return RedirectToAction(nameof(Details), new { id = post.Id });
         }
         catch (PostNotFoundOrForbiddenException) { return NotFound(); }
+        catch (BannedUserException exception) { ModelState.AddModelError(string.Empty, exception.Message); return View(model); }
         catch (PostBusinessRuleException exception) { ModelState.AddModelError(string.Empty, exception.Message); return View(model); }
     }
 
@@ -74,6 +75,7 @@ public class PostsController(IPostService postService, ICommentService commentSe
         if (authorId is null) return Challenge();
         try { await postService.UpdateAsync(model.Id, model.Title, model.Content, authorId); return RedirectToAction(nameof(Details), new { id = model.Id }); }
         catch (PostNotFoundOrForbiddenException) { return NotFound(); }
+        catch (BannedUserException exception) { ModelState.AddModelError(string.Empty, exception.Message); return View(model); }
         catch (PostBusinessRuleException exception) { ModelState.AddModelError(string.Empty, exception.Message); return View(model); }
     }
 

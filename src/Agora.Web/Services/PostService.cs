@@ -3,12 +3,13 @@ using Agora.Web.Repositories;
 
 namespace Agora.Web.Services;
 
-public class PostService(IPostRepository postRepository) : IPostService
+public class PostService(IPostRepository postRepository, IBanStatusService? banStatusService = null) : IPostService
 {
     public async Task<Post> CreateAsync(int forumId, string title, string content, string authorId, CancellationToken cancellationToken = default)
     {
         Validate(title, content);
         if (string.IsNullOrWhiteSpace(authorId)) throw new ArgumentException("Author ID is required.", nameof(authorId));
+        if (banStatusService is not null) await banStatusService.EnsureNotBannedAsync(authorId, cancellationToken);
         await EnsureForumApprovedAsync(forumId, cancellationToken);
         var now = DateTime.UtcNow;
         var post = new Post { ForumId = forumId, AuthorId = authorId, Title = title.Trim(), Content = content.Trim(), CreatedAtUtc = now, UpdatedAtUtc = now };
@@ -29,6 +30,7 @@ public class PostService(IPostRepository postRepository) : IPostService
     public async Task UpdateAsync(int id, string title, string content, string authorId, CancellationToken cancellationToken = default)
     {
         Validate(title, content);
+        if (banStatusService is not null) await banStatusService.EnsureNotBannedAsync(authorId, cancellationToken);
         var post = await postRepository.GetOwnedActiveAsync(id, authorId, cancellationToken) ?? throw new PostNotFoundOrForbiddenException();
         post.Title = title.Trim();
         post.Content = content.Trim();
