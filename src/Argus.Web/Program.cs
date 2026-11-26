@@ -3,18 +3,29 @@ using Argus.Web.Consumers;
 using Argus.Web.Data;
 using Argus.Web.Repositories;
 using Argus.Web.Services;
+using Argus.Web.Data.Seeding;
+using Microsoft.AspNetCore.Identity;
+using Microsoft.AspNetCore.Mvc.Authorization;
 using Microsoft.EntityFrameworkCore;
 
 var builder = WebApplication.CreateBuilder(args);
 
-// Add services to the container.
-builder.Services.AddControllersWithViews();
+// Every page needs a logged-in user unless it says [AllowAnonymous] (only login, access denied and the error page).
+builder.Services.AddControllersWithViews(options => options.Filters.Add(new AuthorizeFilter()));
 
 var connectionString = builder.Configuration.GetConnectionString("ArgusDb")
     ?? throw new InvalidOperationException(
         "Connection string 'ConnectionStrings:ArgusDb' is required. Configure it in User Secrets for local development.");
 builder.Services.AddDbContext<ArgusDbContext>(options => options.UseSqlServer(connectionString));
 
+
+// Identity (§4): Argus staff only. No public registration; the Admin creates operator accounts.
+builder.Services.AddIdentity<IdentityUser, IdentityRole>().AddEntityFrameworkStores<ArgusDbContext>();
+// Checks the account on every request, so a deleted operator is signed out at once instead of when the cookie expires.
+builder.Services.Configure<SecurityStampValidatorOptions>(options => options.ValidationInterval = TimeSpan.Zero);
+builder.Services.AddScoped<IdentitySeeder>();
+
+builder.Services.AddScoped<IOperatorService, OperatorService>();
 builder.Services.AddScoped<IClientAppRepository, ClientAppRepository>();
 builder.Services.AddScoped<IClientAppService, ClientAppService>();
 builder.Services.AddScoped<IHealthRepository, HealthRepository>();
@@ -39,10 +50,12 @@ builder.Services.AddHostedService<HealthWatchdog>();
 
 var app = builder.Build();
 
-// Create or update ArgusDb on every start (design draft §8). This also seeds the agora and demo client apps.
+// Create or update ArgusDb on every start (design draft §8). This also seeds the agora and demo client apps,
+// then the Admin and Operator accounts.
 using (var scope = app.Services.CreateScope())
 {
     await scope.ServiceProvider.GetRequiredService<ArgusDbContext>().Database.MigrateAsync();
+    await scope.ServiceProvider.GetRequiredService<IdentitySeeder>().SeedAsync();
 }
 
 // Configure the HTTP request pipeline.
@@ -56,6 +69,7 @@ if (!app.Environment.IsDevelopment())
 app.UseHttpsRedirection();
 app.UseRouting();
 
+app.UseAuthentication();
 app.UseAuthorization();
 
 app.MapStaticAssets();

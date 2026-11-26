@@ -1,10 +1,13 @@
 ﻿using Argus.Contracts;
 using Argus.Web.Data.Entities;
+using Microsoft.AspNetCore.Identity;
+using Microsoft.AspNetCore.Identity.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore;
 
 namespace Argus.Web.Data;
 
-public class ArgusDbContext(DbContextOptions<ArgusDbContext> options) : DbContext(options)
+/// <summary>Argus's data plus ASP.NET Core Identity's tables for the staff accounts (§4).</summary>
+public class ArgusDbContext(DbContextOptions<ArgusDbContext> options) : IdentityDbContext<IdentityUser>(options)
 {
     public DbSet<ClientApp> ClientApps => Set<ClientApp>();
     public DbSet<DataPoint> DataPoints => Set<DataPoint>();
@@ -30,6 +33,8 @@ public class ArgusDbContext(DbContextOptions<ArgusDbContext> options) : DbContex
 
     protected override void OnModelCreating(ModelBuilder builder)
     {
+        base.OnModelCreating(builder); // Identity's tables (AspNetUsers, AspNetRoles, ...)
+
         builder.Entity<ClientApp>(entity =>
         {
             entity.HasIndex(app => app.ClientId).IsUnique();

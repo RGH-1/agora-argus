@@ -1,8 +1,9 @@
-using System.Diagnostics;
 using Argus.Web.Models;
 using Argus.Web.Models.Status;
 using Argus.Web.Services;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using System.Diagnostics;
 
 namespace Argus.Web.Controllers;
 
@@ -29,6 +30,7 @@ public class HomeController(IClientAppService clientAppService, IHealthService h
         return View();
     }
 
+    [AllowAnonymous] // the error page must work for someone who isn't logged in too
     [ResponseCache(Duration = 0, Location = ResponseCacheLocation.None, NoStore = true)]
     public IActionResult Error()
     {
