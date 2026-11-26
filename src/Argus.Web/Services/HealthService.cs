@@ -1,6 +1,7 @@
 ﻿using Argus.Contracts;
 using Argus.Contracts.Analytics;
 using Argus.Contracts.Health;
+using Argus.Contracts.Outbound;
 using Argus.Web.Data.Entities;
 using Argus.Web.Repositories;
 
@@ -11,8 +12,12 @@ public class HealthService(
     IClientAppRepository clientApps,
     IHealthRepository health,
     IIncidentRepository incidents,
+    IClientNotifier notifier,
     ILogger<HealthService> logger) : IHealthService
 {
+    // Status changes made in this unit of work; sent to the clients only after they are saved.
+    private readonly List<(ClientApp Client, HealthStatusChanged Change, Incident? Incident)> _changes = [];
+
     public async Task ProcessAsync(ArgusMessage message, CancellationToken cancellationToken = default)
     {
         // RabbitMQ delivers at least once, so the same message can arrive twice: skip it the second time.
@@ -36,19 +41,20 @@ public class HealthService(
             case ClientStarted started:
                 client.Version = Cut(started.Version, 50);
                 client.LastHeartbeatAtUtc = DateTime.UtcNow; // counts as a sign of life, so the watchdog waits for the first heartbeat
-                await SetHealthAsync(client, HealthStatus.Healthy, null, cancellationToken);
+                await SetHealthAsync(client, HealthStatus.Healthy, "Client started", cancellationToken);
                 break;
 
             case Heartbeat heartbeat:
                 client.LastHeartbeatAtUtc = DateTime.UtcNow; // when Argus heard it, so a client's wrong clock can't fool the watchdog
                 health.AddDataPoints(ToDataPoints(client, heartbeat));
                 var problem = FindProblem(client, heartbeat);
-                await SetHealthAsync(client, problem is null ? HealthStatus.Healthy : HealthStatus.Degraded, problem, cancellationToken);
+                await SetHealthAsync(client, problem is null ? HealthStatus.Healthy : HealthStatus.Degraded,
+                    problem ?? "Heartbeat within thresholds", cancellationToken);
                 break;
 
             case ClientStopping:
                 // A planned shutdown: no incident, and the watchdog must not call it Down.
-                await SetHealthAsync(client, HealthStatus.Stopped, null, cancellationToken);
+                await SetHealthAsync(client, HealthStatus.Stopped, "Client stopped", cancellationToken);
                 break;
 
             case ErrorReported error:
@@ -91,6 +97,7 @@ public class HealthService(
         // Processing and remembering the MessageId are saved together: either both happen or neither does.
         health.MarkProcessed(message.MessageId);
         await health.SaveAsync(cancellationToken);
+        await NotifyChangesAsync(cancellationToken);
     }
 
     public Task<IReadOnlyDictionary<string, decimal>> GetLatestHeartbeatAsync(int clientAppId, CancellationToken cancellationToken = default) =>
@@ -111,18 +118,20 @@ public class HealthService(
             await SetHealthAsync(client, HealthStatus.Down, $"No heartbeat for over {client.HeartbeatTimeoutSec} s", cancellationToken);
         }
         await health.SaveAsync(cancellationToken);
+        await NotifyChangesAsync(cancellationToken);
     }
 
     /// <summary>
     /// Every health change goes through here, so incidents open and close in one place (§4.2):
     /// Down or Degraded opens one, Healthy closes it, Stopped never opens one.
-    /// The caller saves, so the change and its incident are stored together.
+    /// The caller saves, so the change and its incident are stored together, then the client is told (§6).
     /// </summary>
-    private async Task SetHealthAsync(ClientApp client, HealthStatus status, string? reason, CancellationToken cancellationToken)
+    private async Task SetHealthAsync(ClientApp client, HealthStatus status, string reason, CancellationToken cancellationToken)
     {
         if (client.Health == status) return;
-        logger.LogWarning("Client '{ClientId}' is {Status} (was {Previous}){Reason}",
-            client.ClientId, status, client.Health, reason is null ? "" : $": {reason}");
+        logger.LogWarning("Client '{ClientId}' is {Status} (was {Previous}): {Reason}", client.ClientId, status, client.Health, reason);
+        var change = new HealthStatusChanged { OldStatus = client.Health, NewStatus = status, Reason = Cut(reason, 500) };
+        Incident? incident = null; // the one this change opens or closes
         client.Health = status;
 
         if (status is HealthStatus.Down or HealthStatus.Degraded)
@@ -130,20 +139,35 @@ public class HealthService(
             // One incident per outage: Degraded → Down keeps the incident that's already open.
             if (await incidents.GetOpenAsync(client.Id, cancellationToken) is null)
             {
-                incidents.Add(new Incident
+                incident = new Incident
                 {
                     ClientApp = client,
                     Cause = status,
-                    Reason = Cut(reason ?? status.ToString(), 500),
+                    Reason = Cut(reason, 500),
                     OpenedAtUtc = DateTime.UtcNow,
-                });
+                };
+                incidents.Add(incident);
             }
         }
         else if (status == HealthStatus.Healthy && await incidents.GetOpenAsync(client.Id, cancellationToken) is { } open)
         {
             open.Status = IncidentStatus.Resolved; // recovered on its own
             open.ResolvedAtUtc = DateTime.UtcNow;
+            incident = open;
         }
+
+        _changes.Add((client, change, incident));
+    }
+
+    /// <summary>Only after SaveAsync: the client never hears about a change that wasn't stored, and a new incident has its Id.</summary>
+    private async Task NotifyChangesAsync(CancellationToken cancellationToken)
+    {
+        foreach (var (client, change, incident) in _changes)
+        {
+            change.IncidentId = incident?.Id;
+            await notifier.SendAsync(client.ClientId, change, cancellationToken);
+        }
+        _changes.Clear();
     }
 
     /// <summary>Why a live client is Degraded, or null when the heartbeat is within its thresholds (§4.1).</summary>

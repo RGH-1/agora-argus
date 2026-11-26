@@ -1,6 +1,7 @@
 ﻿using Argus.Contracts;
 using Argus.Contracts.Analytics;
 using Argus.Contracts.Health;
+using Argus.Contracts.Outbound;
 using Argus.Web.Data;
 using Argus.Web.Data.Entities;
 using Argus.Web.Repositories;
@@ -16,13 +17,14 @@ public class HealthServiceTests : IAsyncLifetime
     private readonly SqliteConnection _connection = new("DataSource=:memory:");
     private ArgusDbContext _db = null!;
     private HealthService _service = null!;
+    private readonly FakeClientNotifier _notifier = new();
 
     public async Task InitializeAsync()
     {
         await _connection.OpenAsync();
         _db = new ArgusDbContext(new DbContextOptionsBuilder<ArgusDbContext>().UseSqlite(_connection).Options);
         await _db.Database.EnsureCreatedAsync(); // seeds agora and demo
-        _service = new HealthService(new ClientAppRepository(_db), new HealthRepository(_db), new IncidentRepository(_db), NullLogger<HealthService>.Instance);
+        _service = new HealthService(new ClientAppRepository(_db), new HealthRepository(_db), new IncidentRepository(_db), _notifier, NullLogger<HealthService>.Instance);
     }
 
     public async Task DisposeAsync()
