@@ -20,4 +20,6 @@ public class ClientAppRepository(ArgusDbContext dbContext) : IClientAppRepositor
         await dbContext.ClientApps.AddAsync(clientApp, cancellationToken);
         await dbContext.SaveChangesAsync(cancellationToken);
     }
+
+    public Task SaveAsync(CancellationToken cancellationToken = default) => dbContext.SaveChangesAsync(cancellationToken);
 }

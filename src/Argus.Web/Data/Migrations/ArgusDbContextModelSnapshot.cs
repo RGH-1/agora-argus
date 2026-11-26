@@ -43,11 +43,18 @@ namespace Argus.Web.Data.Migrations
                     b.Property<int>("HeartbeatTimeoutSec")
                         .HasColumnType("int");
 
+                    b.Property<bool>("InMaintenance")
+                        .HasColumnType("bit");
+
                     b.Property<bool>("IsSuspended")
                         .HasColumnType("bit");
 
                     b.Property<DateTime?>("LastHeartbeatAtUtc")
                         .HasColumnType("datetime2");
+
+                    b.Property<string>("MaintenanceMessage")
+                        .HasMaxLength(200)
+                        .HasColumnType("nvarchar(200)");
 
                     b.Property<int>("MaxErrorRatePercent")
                         .HasColumnType("int");
@@ -78,6 +85,7 @@ namespace Argus.Web.Data.Migrations
                             ClientId = "agora",
                             Health = "Unknown",
                             HeartbeatTimeoutSec = 30,
+                            InMaintenance = false,
                             IsSuspended = false,
                             MaxErrorRatePercent = 5,
                             Name = "Agora",
@@ -89,6 +97,7 @@ namespace Argus.Web.Data.Migrations
                             ClientId = "demo",
                             Health = "Unknown",
                             HeartbeatTimeoutSec = 30,
+                            InMaintenance = false,
                             IsSuspended = false,
                             MaxErrorRatePercent = 5,
                             Name = "Demo client",

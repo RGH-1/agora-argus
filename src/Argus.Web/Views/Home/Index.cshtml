@@ -33,6 +33,10 @@
                         {
                             <span class="badge text-bg-dark ms-1">Suspended</span>
                         }
+                        @if (client.InMaintenance)
+                        {
+                            <span class="badge text-bg-warning ms-1">Maintenance</span>
+                        }
                     </span>
                     <span class="badge fs-6 @BadgeClass(client.Health)">@client.Health</span>
                 </div>
@@ -50,6 +54,11 @@
                                 <span class="text-muted">never</span>
                             }
                         </dd>
+                        @if (client.InMaintenance)
+                        {
+                            <dt class="col-6">Maintenance</dt>
+                            <dd class="col-6">@(client.MaintenanceMessage ?? "on")</dd>
+                        }
 
                         <dt class="col-6">Version</dt>
                         <dd class="col-6">@(client.Version ?? "—")</dd>
@@ -95,8 +104,20 @@
                         </a>
                     }
                 </div>
-                <div class="card-footer small">
+                <div class="card-footer small d-flex justify-content-between align-items-center gap-2">
                     <a asp-controller="Incidents" asp-action="Index" asp-route-clientId="@client.ClientId">Incidents</a>
+                    <form asp-controller="ClientApps" asp-action="Maintenance" method="post" class="d-flex gap-1">
+                        <input type="hidden" name="clientId" value="@client.ClientId" />
+                        <input type="hidden" name="enabled" value="@(client.InMaintenance ? "false" : "true")" />
+                        @if (!client.InMaintenance)
+                        {
+                            <input name="message" maxlength="200" class="form-control form-control-sm"
+                                   placeholder="Message (optional)" aria-label="Maintenance message for @client.Name" />
+                        }
+                        <button class="btn btn-sm text-nowrap @(client.InMaintenance ? "btn-outline-secondary" : "btn-outline-warning")">
+                            @(client.InMaintenance ? "End maintenance" : "Start maintenance")
+                        </button>
+                    </form>
                 </div>
             </div>
         </div>
@@ -105,7 +126,10 @@
 
 @section Scripts {
     <script>
-        // shortcut: reloads the whole page every 10 s; the SignalR task (AA-40) replaces this with live updates.
-        setTimeout(() => location.reload(), 10000);
+        // Waits while someone is typing a maintenance message, so the reload doesn't wipe it.
+        setTimeout(function reload() {
+            if (document.activeElement?.tagName === "INPUT") return setTimeout(reload, 10000);
+            location.reload();
+        }, 10000);
     </script>
 }

@@ -31,6 +31,8 @@ builder.Services.AddSingleton(provider => new ArgusConnection(rabbitMq, "argus",
         provider.GetRequiredService<ILogger<ArgusConnection>>()
     ));
 builder.Services.AddHostedService(provider => provider.GetRequiredService<ArgusConnection>());
+builder.Services.AddSingleton<ArgusPublisher>();
+builder.Services.AddSingleton<IClientNotifier, ClientNotifier>();
 builder.Services.AddHostedService<HealthConsumer>();
 builder.Services.AddHostedService<AnalyticsConsumer>();
 builder.Services.AddHostedService<HealthWatchdog>();

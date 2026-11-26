@@ -1,4 +1,5 @@
 ﻿using Argus.Contracts;
+using Argus.Contracts.Outbound;
 using Argus.Web.Data;
 using Argus.Web.Repositories;
 using Argus.Web.Services;
@@ -13,13 +14,14 @@ public class ArgusDatabaseTests : IAsyncLifetime
     private readonly SqliteConnection _connection = new("DataSource=:memory:");
     private ArgusDbContext _db = null!;
     private ClientAppService _service = null!;
+    private readonly FakeClientNotifier _notifier = new();
 
     public async Task InitializeAsync()
     {
         await _connection.OpenAsync(); // the in-memory database lives as long as this connection
         _db = new ArgusDbContext(new DbContextOptionsBuilder<ArgusDbContext>().UseSqlite(_connection).Options);
         await _db.Database.EnsureCreatedAsync(); // creates the tables and inserts the seed data
-        _service = new ClientAppService(new ClientAppRepository(_db));
+        _service = new ClientAppService(new ClientAppRepository(_db), _notifier);
     }
 
     public async Task DisposeAsync()
@@ -78,5 +80,21 @@ public class ArgusDatabaseTests : IAsyncLifetime
 
         var stored = await _db.Database.SqlQuery<string>($"SELECT Health AS Value FROM ClientApps WHERE ClientId = 'agora'").SingleAsync();
         Assert.Equal("Down", stored);
+    }
+
+
+    [Fact]
+    public async Task Maintenance_mode_is_saved_and_sent_to_the_client()
+    {
+        Assert.True(await _service.SetMaintenanceAsync("agora", true, "  Back at 18:00  "));
+        var agora = await _db.ClientApps.SingleAsync(app => app.ClientId == "agora");
+        Assert.Equal((true, "Back at 18:00"), (agora.InMaintenance, agora.MaintenanceMessage));
+
+        Assert.True(await _service.SetMaintenanceAsync("agora", false, null));
+        Assert.Equal((false, null), (agora.InMaintenance, agora.MaintenanceMessage));
+
+        var sent = _notifier.Sent.Select(item => (item.ClientId, ((MaintenanceModeChanged)item.Message).Enabled)).ToList();
+        Assert.Equal([("agora", true), ("agora", false)], sent);
+        Assert.False(await _service.SetMaintenanceAsync("ghost", true, null)); // unknown client
     }
 }
