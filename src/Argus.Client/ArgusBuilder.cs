@@ -1,11 +1,16 @@
-﻿using Microsoft.Extensions.DependencyInjection;
+﻿using Argus.Contracts;
+using Argus.Contracts.Outbound;
+using Microsoft.Extensions.DependencyInjection;
 
 namespace Argus.Client;
 
 /// <summary>A gauge: a current value read on every heartbeat, e.g. "reports.pending" → 4.</summary>
 public sealed record ArgusGauge(string Name, Func<IServiceProvider, Task<decimal>> Read);
 
-/// <summary>Returned by AddArgus, so gauges can be chained: <c>AddArgus(...).AddGauge(...)</c>.</summary>
+/// <summary>What the client does when a message of MessageType arrives from Argus in its inbox.</summary>
+public sealed record ArgusHandler(Type MessageType, Func<IServiceProvider, ArgusMessage, Task> Handle);
+
+/// <summary>Returned by AddArgus, so gauges and inbox handlers can be chained: <c>AddArgus(...).AddGauge(...).OnMaintenanceModeChanged(...)</c>.</summary>
 public sealed class ArgusBuilder(IServiceCollection services)
 {
     private readonly HashSet<string> _gaugeNames = [];
@@ -24,6 +29,27 @@ public sealed class ArgusBuilder(IServiceCollection services)
         if (!_gaugeNames.Add(name)) throw new ArgumentException($"The gauge '{name}' was added twice.", nameof(name));
 
         Services.AddSingleton(new ArgusGauge(name, provider => read(provider.GetRequiredService<TService>())));
+        return this;
+    }
+
+    // Handlers for messages from Argus. TService comes from a fresh DI scope per message, so a DbContext is fine.
+    // RabbitMQ delivers at least once, so a handler can (rarely) see the same message twice: use MessageId to skip repeats.
+
+    /// <summary><code>.OnMaintenanceModeChanged((MaintenanceState state, MaintenanceModeChanged message) => state.SetAsync(message))</code></summary>
+    public ArgusBuilder OnMaintenanceModeChanged<TService>(Func<TService, MaintenanceModeChanged, Task> handle) where TService : notnull =>
+        On(handle);
+
+    public ArgusBuilder OnHealthStatusChanged<TService>(Func<TService, HealthStatusChanged, Task> handle) where TService : notnull =>
+        On(handle);
+
+    public ArgusBuilder OnInsightPublished<TService>(Func<TService, InsightPublished, Task> handle) where TService : notnull =>
+        On(handle);
+
+    private ArgusBuilder On<TService, TMessage>(Func<TService, TMessage, Task> handle)
+        where TService : notnull where TMessage : ArgusMessage
+    {
+        Services.AddSingleton(new ArgusHandler(typeof(TMessage),
+            (provider, message) => handle(provider.GetRequiredService<TService>(), (TMessage)message)));
         return this;
     }
 }
