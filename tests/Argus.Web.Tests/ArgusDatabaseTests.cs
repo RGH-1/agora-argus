@@ -1,4 +1,5 @@
 ﻿using Argus.Contracts;
+using Argus.Contracts.Outbound;
 using Argus.Web.Data;
 using Argus.Web.Repositories;
 using Argus.Web.Services;
@@ -13,13 +14,14 @@ public class ArgusDatabaseTests : IAsyncLifetime
     private readonly SqliteConnection _connection = new("DataSource=:memory:");
     private ArgusDbContext _db = null!;
     private ClientAppService _service = null!;
+    private readonly FakeClientNotifier _notifier = new();
 
     public async Task InitializeAsync()
     {
         await _connection.OpenAsync(); // the in-memory database lives as long as this connection
         _db = new ArgusDbContext(new DbContextOptionsBuilder<ArgusDbContext>().UseSqlite(_connection).Options);
         await _db.Database.EnsureCreatedAsync(); // creates the tables and inserts the seed data
-        _service = new ClientAppService(new ClientAppRepository(_db));
+        _service = new ClientAppService(new ClientAppRepository(_db), _notifier);
     }
 
     public async Task DisposeAsync()

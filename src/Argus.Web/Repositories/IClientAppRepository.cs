@@ -8,4 +8,5 @@ public interface IClientAppRepository
     Task<ClientApp?> GetByClientIdAsync(string clientId, CancellationToken cancellationToken = default);
     Task<bool> ExistsAsync(string clientId, CancellationToken cancellationToken = default);
     Task AddAsync(ClientApp clientApp, CancellationToken cancellationToken = default);
+    Task SaveAsync(CancellationToken cancellationToken = default);
 }
