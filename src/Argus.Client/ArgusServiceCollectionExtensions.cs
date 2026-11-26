@@ -42,8 +42,6 @@ public static class ArgusServiceCollectionExtensions
         services.AddSingleton<ArgusPublisher>();
         services.AddSingleton<ArgusSender>();
         services.AddSingleton<RequestMetrics>();
-        services.AddHostedService<ArgusHeartbeatService>();
-        services.AddSingleton<RequestMetrics>();
         services.AddSingleton<IArgusTracker, ArgusTracker>();
         services.AddHostedService<ArgusHeartbeatService>();
 
