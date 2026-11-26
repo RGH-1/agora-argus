@@ -24,6 +24,7 @@ builder.Services.AddIdentity<IdentityUser, IdentityRole>().AddEntityFrameworkSto
 // Checks the account on every request, so a deleted operator is signed out at once instead of when the cookie expires.
 builder.Services.Configure<SecurityStampValidatorOptions>(options => options.ValidationInterval = TimeSpan.Zero);
 builder.Services.AddScoped<IdentitySeeder>();
+builder.Services.AddScoped<MetricSeeder>();
 
 builder.Services.AddScoped<IOperatorService, OperatorService>();
 builder.Services.AddScoped<IClientAppRepository, ClientAppRepository>();
@@ -51,11 +52,12 @@ builder.Services.AddHostedService<HealthWatchdog>();
 var app = builder.Build();
 
 // Create or update ArgusDb on every start (design draft §8). This also seeds the agora and demo client apps,
-// then the Admin and Operator accounts.
+// then the Admin and Operator accounts and the default charts.
 using (var scope = app.Services.CreateScope())
 {
     await scope.ServiceProvider.GetRequiredService<ArgusDbContext>().Database.MigrateAsync();
     await scope.ServiceProvider.GetRequiredService<IdentitySeeder>().SeedAsync();
+    await scope.ServiceProvider.GetRequiredService<MetricSeeder>().SeedAsync();
 }
 
 // Configure the HTTP request pipeline.
