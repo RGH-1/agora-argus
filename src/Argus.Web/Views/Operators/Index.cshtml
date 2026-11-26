@@ -1,0 +1,58 @@
+﻿@using Argus.Web.Data
+@model Argus.Web.Models.Operators.OperatorsViewModel
+@{
+    ViewData["Title"] = "Operators";
+}
+
+<h1 class="h3 mb-3">Operators</h1>
+
+@if (TempData["Message"] is string message)
+{
+    <div class="alert alert-success py-2" role="status">@message</div>
+}
+
+<table class="table table-sm align-middle">
+    <thead>
+        <tr><th>Username</th><th>Role</th><th></th></tr>
+    </thead>
+    <tbody>
+        @foreach (var account in Model.Accounts)
+        {
+            <tr>
+                <td>@account.UserName</td>
+                <td>@account.Role</td>
+                <td class="text-end">
+                    @if (account.Role == ArgusRoles.Operator)
+                    {
+                        <form asp-action="Delete" asp-route-id="@account.Id" method="post"
+                              onsubmit="return confirm('Delete operator @account.UserName?');">
+                            <button class="btn btn-sm btn-outline-danger">Delete</button>
+                        </form>
+                    }
+                </td>
+            </tr>
+        }
+    </tbody>
+</table>
+
+<h2 class="h5 mt-4">New operator</h2>
+<form asp-action="Create" method="post" class="row g-2 align-items-start" style="max-width: 40rem">
+    <div asp-validation-summary="ModelOnly" class="alert alert-danger py-2 col-12" role="alert"></div>
+    <div class="col-sm-5">
+        <label asp-for="NewOperator.UserName" class="form-label"></label>
+        <input asp-for="NewOperator.UserName" class="form-control" autocomplete="off" />
+        <span asp-validation-for="NewOperator.UserName" class="text-danger small"></span>
+    </div>
+    <div class="col-sm-5">
+        <label asp-for="NewOperator.Password" class="form-label"></label>
+        <input asp-for="NewOperator.Password" class="form-control" autocomplete="new-password" />
+        <span asp-validation-for="NewOperator.Password" class="text-danger small"></span>
+    </div>
+    <div class="col-sm-2 d-flex align-items-end" style="padding-top: 2rem">
+        <button class="btn btn-primary w-100">Create</button>
+    </div>
+</form>
+
+@section Scripts {
+    <partial name="_ValidationScriptsPartial" />
+}
