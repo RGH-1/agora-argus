@@ -4,7 +4,7 @@ namespace Argus.Web.Services;
 
 public interface IHealthService
 {
-    /// <summary>Stores one message from argus.health (heartbeat, start, stop or error).</summary>
+    /// <summary>Stores one message a client sent: from argus.health (heartbeat, start, stop, error) or argus.analytics (activity).</summary>
     Task ProcessAsync(ArgusMessage message, CancellationToken cancellationToken = default);
 
     /// <summary>The sys.* numbers of the client's latest heartbeat, for the status board.</summary>

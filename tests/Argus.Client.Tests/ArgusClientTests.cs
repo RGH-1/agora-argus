@@ -1,7 +1,7 @@
-﻿using System.Text.Json;
-using Argus.Contracts;
+﻿using Argus.Contracts;
 using Argus.Contracts.Analytics;
 using Argus.Contracts.Health;
+using Argus.Contracts.Outbound;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Http;
@@ -10,6 +10,7 @@ using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Diagnostics.HealthChecks;
 using RabbitMQ.Client;
+using System.Text.Json;
 
 namespace Argus.Client.Tests;
 
@@ -131,6 +132,53 @@ public class ArgusClientTests
         Assert.Throws<ArgumentException>(() => argus.AddGauge("sys.memory_mb", (IServiceProvider _) => Task.FromResult(1m)));  // reserved
     }
 
+
+    [Fact]
+    public async Task A_message_from_argus_reaches_the_clients_handler()
+    {
+        await using var connection = await new ConnectionFactory
+        {
+            HostName = "127.0.0.1",
+            UserName = Environment.GetEnvironmentVariable("RABBITMQ_USER") ?? "argus",
+            Password = Environment.GetEnvironmentVariable("RABBITMQ_PASSWORD") ?? "change-me",
+        }.CreateConnectionAsync();
+        await using var channel = await connection.CreateChannelAsync();
+        await ArgusTopology.DeclareIngestAsync(channel);
+        var listener = (await channel.QueueDeclareAsync(exclusive: true)).QueueName;
+        await channel.QueueBindAsync(listener, ArgusExchanges.Ingest, ArgusRoutingKeys.AllHealth);
+
+        var app = BuildApp();
+        await app.StartAsync();
+        try
+        {
+            await WaitForAsync<ClientStarted>(channel, listener); // connected, so the inbox exists
+
+            // What Argus will do in AA-27: publish to argus.outbound with the client's routing key.
+            var sent = new MaintenanceModeChanged { ClientId = ClientId, Enabled = true, Message = "Back at 18:00" };
+            await channel.BasicPublishAsync(ArgusExchanges.Outbound, ArgusRoutingKeys.MaintenanceModeChanged(ClientId), mandatory: false,
+                new BasicProperties { Type = nameof(MaintenanceModeChanged), ContentType = "application/json" },
+                JsonSerializer.SerializeToUtf8Bytes(sent, ArgusJson.Options));
+
+            var received = await app.Services.GetRequiredService<InboxLog>().Maintenance.Task.WaitAsync(TimeSpan.FromSeconds(10));
+            Assert.Equal((sent.MessageId, true, "Back at 18:00"), (received.MessageId, received.Enabled, received.Message));
+        }
+        finally
+        {
+            await app.StopAsync();
+            await app.DisposeAsync();
+        }
+
+        await channel.QueueDeleteAsync(ArgusQueues.Inbox(ClientId));
+        await channel.QueueDeleteAsync(ArgusQueues.ClientDead(ClientId));
+    }
+
+    /// <summary>Remembers what the inbox handler received, so the test can wait for it.</summary>
+    private sealed class InboxLog
+    {
+        public TaskCompletionSource<MaintenanceModeChanged> Maintenance { get; } = new(TaskCreationOptions.RunContinuationsAsynchronously);
+    }
+
+
     /// <summary>A scoped service, like a DbContext would be.</summary>
     private sealed class PendingReports
     {
@@ -150,7 +198,14 @@ public class ArgusClientTests
         });
         builder.Services.AddArgus(builder.Configuration.GetSection("Argus"))
             .AddGauge("reports.pending", async (PendingReports reports) => await Task.FromResult(reports.Count))
-            .AddGauge("broken", (IServiceProvider _) => throw new InvalidOperationException("Simulated gauge failure"));
+            .AddGauge("broken", (IServiceProvider _) => throw new InvalidOperationException("Simulated gauge failure"))
+            .OnMaintenanceModeChanged((InboxLog log, MaintenanceModeChanged message) =>
+            {
+                log.Maintenance.TrySetResult(message);
+                return Task.CompletedTask;
+            });
+        builder.Services.AddScoped<PendingReports>();
+        builder.Services.AddSingleton<InboxLog>();
         builder.Services.AddScoped<PendingReports>();
         builder.Services.AddHealthChecks().AddCheck("db", () => HealthCheckResult.Healthy());
 

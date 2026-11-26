@@ -72,6 +72,18 @@ await argus.TrackAsync("subscription.purchased", value: 4.99m);
 `TrackAsync` never throws because of RabbitMQ: while the broker is down the event is logged and dropped. A gauge that throws is logged and left out of that heartbeat. Gauge names starting with `sys.` are reserved.
 
 
+### Reacting to messages from Argus (AA-26)
+
+```csharp
+// Program.cs: each handler gets its service from a fresh scope (a DbContext is fine)
+builder.Services.AddArgus(builder.Configuration.GetSection("Argus"))
+    .OnMaintenanceModeChanged((MaintenanceState state, MaintenanceModeChanged message) => state.SetAsync(message.Enabled, message.Message))
+    .OnHealthStatusChanged(async (AgoraDbContext db, HealthStatusChanged message) => { /* store it for the Argus panel */ });
+```
+
+The SDK consumes `<clientId>.inbox`. A handler that throws is retried, and after 3 failures the message goes to `<clientId>.dead`. Delivery is at least once, so a handler should skip a `MessageId` it has already seen. Message types without a handler are acknowledged and ignored.
+
+
 ## Docker Infrastructure (AA-4)
 
 The project uses Docker Compose to run RabbitMQ and SQL Server 2022.
