@@ -81,4 +81,20 @@ public class ArgusDatabaseTests : IAsyncLifetime
         var stored = await _db.Database.SqlQuery<string>($"SELECT Health AS Value FROM ClientApps WHERE ClientId = 'agora'").SingleAsync();
         Assert.Equal("Down", stored);
     }
+
+
+    [Fact]
+    public async Task Maintenance_mode_is_saved_and_sent_to_the_client()
+    {
+        Assert.True(await _service.SetMaintenanceAsync("agora", true, "  Back at 18:00  "));
+        var agora = await _db.ClientApps.SingleAsync(app => app.ClientId == "agora");
+        Assert.Equal((true, "Back at 18:00"), (agora.InMaintenance, agora.MaintenanceMessage));
+
+        Assert.True(await _service.SetMaintenanceAsync("agora", false, null));
+        Assert.Equal((false, null), (agora.InMaintenance, agora.MaintenanceMessage));
+
+        var sent = _notifier.Sent.Select(item => (item.ClientId, ((MaintenanceModeChanged)item.Message).Enabled)).ToList();
+        Assert.Equal([("agora", true), ("agora", false)], sent);
+        Assert.False(await _service.SetMaintenanceAsync("ghost", true, null)); // unknown client
+    }
 }

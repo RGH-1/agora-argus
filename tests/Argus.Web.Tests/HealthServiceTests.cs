@@ -256,4 +256,22 @@ public class HealthServiceTests : IAsyncLifetime
         Assert.Empty(await _db.DataPoints.ToListAsync());
         Assert.Single(await _db.ProcessedMessages.ToListAsync()); // acked, not retried
     }
+
+
+    [Fact]
+    public async Task Every_status_change_is_sent_to_the_client_with_its_incident()
+    {
+        await _service.ProcessAsync(new Heartbeat { ClientId = "agora" });
+        await _service.ProcessAsync(new Heartbeat { ClientId = "agora" }); // still Healthy: nothing new to tell
+        await _service.MarkSilentClientsDownAsync(DateTime.UtcNow.AddMinutes(1));
+
+        var changes = _notifier.Sent.Select(sent => (sent.ClientId, Change: (HealthStatusChanged)sent.Message)).ToList();
+        Assert.Equal(2, changes.Count);
+        Assert.Equal(("agora", HealthStatus.Unknown, HealthStatus.Healthy, (int?)null),
+            (changes[0].ClientId, changes[0].Change.OldStatus, changes[0].Change.NewStatus, changes[0].Change.IncidentId));
+
+        var incident = await _db.Incidents.SingleAsync();
+        Assert.Equal((HealthStatus.Healthy, HealthStatus.Down, "No heartbeat for over 30 s", (int?)incident.Id),
+            (changes[1].Change.OldStatus, changes[1].Change.NewStatus, changes[1].Change.Reason, changes[1].Change.IncidentId));
+    }
 }
