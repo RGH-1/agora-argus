@@ -9,6 +9,10 @@ public interface IHealthRepository
     void MarkProcessed(Guid messageId);
     void AddDataPoints(IEnumerable<DataPoint> dataPoints);
     void AddError(ErrorEvent errorEvent);
+
+    /// <summary>The client's charts, to see which data names already have one.</summary>
+    Task<IReadOnlyList<MetricDefinition>> GetMetricDefinitionsAsync(int clientAppId, CancellationToken cancellationToken = default);
+    void AddMetricDefinitions(IEnumerable<MetricDefinition> metricDefinitions);
     /// <summary>Clients the watchdog must check: not suspended and last seen Healthy or Degraded.</summary>
     Task<IReadOnlyList<ClientApp>> GetLiveClientsAsync(CancellationToken cancellationToken = default);
 

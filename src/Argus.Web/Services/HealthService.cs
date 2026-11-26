@@ -47,6 +47,7 @@ public class HealthService(
             case Heartbeat heartbeat:
                 client.LastHeartbeatAtUtc = DateTime.UtcNow; // when Argus heard it, so a client's wrong clock can't fool the watchdog
                 health.AddDataPoints(ToDataPoints(client, heartbeat));
+                await AddMissingChartsAsync(client, heartbeat.Gauges.Keys.Select(name => Cut(name, 100)), isGauge: true, cancellationToken);
                 var problem = FindProblem(client, heartbeat);
                 await SetHealthAsync(client, problem is null ? HealthStatus.Healthy : HealthStatus.Degraded,
                     problem ?? "Heartbeat within thresholds", cancellationToken);
@@ -87,6 +88,7 @@ public class HealthService(
                     ActorId = CutOrNull(activity.ActorId, 100),
                     TimestampUtc = activity.OccurredAt.UtcDateTime, // when it happened in the client, so charts show the real time
                 }]);
+                await AddMissingChartsAsync(client, [Cut(activity.EventType, 100)], isGauge: false, cancellationToken);
                 break;
 
             default:
@@ -169,6 +171,33 @@ public class HealthService(
         }
         _changes.Clear();
     }
+
+
+    /// <summary>
+    /// A data name with no chart yet gets a default one, so whatever a client sends shows up on the dashboard (§4.3):
+    /// an event is counted per day, a gauge shows its latest value. The metric builder changes them or adds more.
+    /// Saved together with the data points, so a failed message leaves no chart behind.
+    /// </summary>
+    private async Task AddMissingChartsAsync(ClientApp client, IEnumerable<string> sources, bool isGauge, CancellationToken cancellationToken)
+    {
+        // shortcut: reads the client's charts on every event (a handful of rows); cache them if traffic grows.
+        // Two messages bringing the same new name at once both add it: the unique index rejects one, and its retry finds the chart.
+        var charts = await health.GetMetricDefinitionsAsync(client.Id, cancellationToken);
+        health.AddMetricDefinitions(sources
+            // Skip names that already have a chart (a seeded default or an operator's), or whose name is taken.
+            .Where(source => !source.StartsWith("sys.") && !charts.Any(chart => chart.Source == source || chart.Name == source))
+            .Select(source => new MetricDefinition
+            {
+                ClientAppId = client.Id,
+                Name = source,
+                Source = source,
+                Aggregation = isGauge ? MetricAggregation.Latest : MetricAggregation.Count,
+                Bucket = isGauge ? TimeBucket.Minute : TimeBucket.Day,
+                Chart = isGauge ? ChartType.NumberTile : ChartType.Line,
+            }));
+    }
+
+
 
     /// <summary>Why a live client is Degraded, or null when the heartbeat is within its thresholds (§4.1).</summary>
     private static string? FindProblem(ClientApp client, Heartbeat heartbeat)
