@@ -22,6 +22,12 @@ public class HealthRepository(ArgusDbContext dbContext) : IHealthRepository
             .Where(app => !app.IsSuspended && (app.Health == HealthStatus.Healthy || app.Health == HealthStatus.Degraded))
             .ToListAsync(cancellationToken);
 
+
+    public async Task<IReadOnlyList<MetricDefinition>> GetMetricDefinitionsAsync(int clientAppId, CancellationToken cancellationToken = default) =>
+        await dbContext.MetricDefinitions.AsNoTracking().Where(metric => metric.ClientAppId == clientAppId).ToListAsync(cancellationToken);
+
+    public void AddMetricDefinitions(IEnumerable<MetricDefinition> metricDefinitions) => dbContext.MetricDefinitions.AddRange(metricDefinitions);
+
     public async Task<IReadOnlyDictionary<string, decimal>> GetLatestHeartbeatAsync(int clientAppId, CancellationToken cancellationToken = default)
     {
         // All numbers of one heartbeat share its timestamp, and sys.uptime_sec is in every heartbeat.

@@ -4,6 +4,7 @@ using Argus.Contracts.Health;
 using Argus.Contracts.Outbound;
 using Argus.Web.Data;
 using Argus.Web.Data.Entities;
+using Argus.Web.Data.Seeding;
 using Argus.Web.Repositories;
 using Argus.Web.Services;
 using Microsoft.Data.Sqlite;
@@ -273,5 +274,31 @@ public class HealthServiceTests : IAsyncLifetime
         var incident = await _db.Incidents.SingleAsync();
         Assert.Equal((HealthStatus.Healthy, HealthStatus.Down, "No heartbeat for over 30 s", (int?)incident.Id),
             (changes[1].Change.OldStatus, changes[1].Change.NewStatus, changes[1].Change.Reason, changes[1].Change.IncidentId));
+    }
+
+    [Fact]
+    public async Task A_new_event_or_gauge_gets_one_default_chart()
+    {
+        await _service.ProcessAsync(new ActivityRecorded { ClientId = "demo", EventType = "order.placed" });
+        await _service.ProcessAsync(new ActivityRecorded { ClientId = "demo", EventType = "order.placed" }); // already charted
+        await _service.ProcessAsync(new Heartbeat { ClientId = "demo", Gauges = new() { ["queue.length"] = 3 } });
+
+        var charts = await _db.MetricDefinitions.OrderBy(chart => chart.Id)
+            .Select(chart => new { chart.Name, chart.Source, chart.Aggregation, chart.Bucket, chart.Chart }).ToListAsync();
+        Assert.Equal(2, charts.Count); // and no chart for the heartbeat's sys.* numbers
+        Assert.Equal(new { Name = "order.placed", Source = "order.placed", Aggregation = MetricAggregation.Count, Bucket = TimeBucket.Day, Chart = ChartType.Line }, charts[0]);
+        Assert.Equal(new { Name = "queue.length", Source = "queue.length", Aggregation = MetricAggregation.Latest, Bucket = TimeBucket.Minute, Chart = ChartType.NumberTile }, charts[1]);
+    }
+
+    [Fact]
+    public async Task A_name_that_already_has_a_chart_gets_no_second_one()
+    {
+        await new MetricSeeder(_db).SeedAsync(); // Agora's defaults chart Post.Added and reports.pending
+        var before = await _db.MetricDefinitions.CountAsync();
+
+        await _service.ProcessAsync(new ActivityRecorded { ClientId = "agora", EventType = "Post.Added" });
+        await _service.ProcessAsync(new Heartbeat { ClientId = "agora", Gauges = new() { ["reports.pending"] = 4 } });
+
+        Assert.Equal(before, await _db.MetricDefinitions.CountAsync());
     }
 }
