@@ -108,6 +108,7 @@
                     <span class="d-flex gap-2">
                         <a asp-controller="Dashboard" asp-action="Index" asp-route-clientId="@client.ClientId">Dashboard</a>
                         <a asp-controller="Incidents" asp-action="Index" asp-route-clientId="@client.ClientId">Incidents</a>
+                        <a asp-controller="Errors" asp-action="Index" asp-route-clientId="@client.ClientId">Errors</a>
                     </span>
                     <form asp-controller="ClientApps" asp-action="Maintenance" method="post" class="d-flex gap-1">
                         <input type="hidden" name="clientId" value="@client.ClientId" />

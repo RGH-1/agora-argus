@@ -1,4 +1,5 @@
 ﻿using Argus.Contracts;
+using Argus.Web.Data.Entities;
 
 namespace Argus.Web.Services;
 
@@ -10,6 +11,9 @@ public interface IHealthService
     /// <summary>The sys.* numbers of the client's latest heartbeat, for the status board.</summary>
     Task<IReadOnlyDictionary<string, decimal>> GetLatestHeartbeatAsync(int clientAppId, CancellationToken cancellationToken = default);
 
+
+    /// <summary>The client's newest errors first, at most <paramref name="limit"/>, for the error log.</summary>
+    Task<IReadOnlyList<ErrorEvent>> GetLatestErrorsAsync(int clientAppId, int limit, CancellationToken cancellationToken = default);
 
     /// <summary>Marks every live client that has been silent longer than its heartbeat timeout as Down.</summary>
     Task MarkSilentClientsDownAsync(DateTime nowUtc, CancellationToken cancellationToken = default);
