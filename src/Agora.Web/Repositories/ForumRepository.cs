@@ -35,7 +35,7 @@ public class ForumRepository(AgoraDbContext dbContext) : IForumRepository
             .OrderBy(forum => forum.SubmittedAtUtc).ThenBy(forum => forum.Id).ToListAsync(cancellationToken);
 
     public Task<ApplicationUser?> GetUserAsync(string userId, CancellationToken cancellationToken = default) =>
-        dbContext.Users.FirstOrDefaultAsync(user => user.Id == userId, cancellationToken);
+        dbContext.Users.AsNoTracking().FirstOrDefaultAsync(user => user.Id == userId, cancellationToken);
 
     public async Task<ForumCreateResult> TryCreateAsync(Forum forum, bool enforceFreeLimit, CancellationToken cancellationToken = default)
     {
