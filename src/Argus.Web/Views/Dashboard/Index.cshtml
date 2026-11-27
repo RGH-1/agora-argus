@@ -1,0 +1,68 @@
+﻿@using Argus.Web.Controllers
+@using Argus.Web.Data.Entities
+@model Argus.Web.Models.Dashboard.DashboardViewModel
+@{
+    ViewData["Title"] = $"Dashboard - {Model.Client.Name}";
+}
+
+<div class="d-flex flex-wrap align-items-center gap-3 mb-3">
+    <h1 class="h3 mb-0">Dashboard</h1>
+    <form asp-action="Index" method="get" class="d-flex gap-2">
+        <select name="clientId" class="form-select form-select-sm" aria-label="Client" onchange="this.form.submit()">
+            @foreach (var client in Model.Clients)
+            {
+                <option value="@client.ClientId" selected="@(client.Id == Model.Client.Id)">@client.Name</option>
+            }
+        </select>
+        <select name="range" class="form-select form-select-sm" aria-label="Time range" onchange="this.form.submit()">
+            @foreach (var range in DashboardController.Ranges.Keys)
+            {
+                <option value="@range" selected="@(range == Model.Range)">Last @range</option>
+            }
+        </select>
+        <noscript><button class="btn btn-sm btn-primary">Show</button></noscript>
+    </form>
+    <span class="small text-muted">Times in UTC</span>
+</div>
+
+@if (Model.Charts.Count == 0)
+{
+    <p class="text-muted">This client has no charts yet.</p>
+}
+
+<div class="row g-3">
+    @foreach (var chart in Model.Charts)
+    {
+        <div class="@(chart.Metric.Chart == ChartType.NumberTile ? "col-6 col-md-4 col-xl-3" : "col-12 col-lg-6")">
+            <partial name="_Chart" model="chart" />
+        </div>
+    }
+</div>
+
+@section Scripts {
+    <script src="~/lib/chart.js/chart.umd.min.js"></script>
+    <script>
+        // Every line and bar chart is drawn the same way: _Chart.cshtml puts its data next to the canvas as JSON.
+        for (const canvas of document.querySelectorAll("canvas[data-chart]")) {
+            const chart = JSON.parse(document.getElementById(canvas.dataset.chart).textContent);
+            new Chart(canvas, {
+                type: chart.type,
+                data: {
+                    labels: chart.labels,
+                    datasets: chart.series.map(series => ({
+                        label: series.name,
+                        data: series.values,
+                        spanGaps: true,
+                        pointRadius: chart.labels.length > 60 ? 0 : 3, // dots only when they don't hide the line
+                    })),
+                },
+                options: {
+                    maintainAspectRatio: false,
+                    animation: false,
+                    plugins: { legend: { display: chart.series.length > 1 } }, // a legend only for grouped charts
+                    scales: { y: { beginAtZero: true } },
+                },
+            });
+        }
+    </script>
+}
