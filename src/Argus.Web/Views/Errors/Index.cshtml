@@ -1,0 +1,42 @@
+﻿@model Argus.Web.Models.Errors.ErrorLogViewModel
+@{
+    ViewData["Title"] = $"Errors - {Model.Client.Name}";
+}
+
+<div class="d-flex flex-wrap align-items-center gap-3 mb-3">
+    <h1 class="h3 mb-0">Errors</h1>
+    <form asp-action="Index" method="get">
+        <select name="clientId" class="form-select form-select-sm" aria-label="Client" onchange="this.form.submit()">
+            @foreach (var client in Model.Clients)
+            {
+                <option value="@client.ClientId" selected="@(client.Id == Model.Client.Id)">@client.Name</option>
+            }
+        </select>
+        <noscript><button class="btn btn-sm btn-primary">Show</button></noscript>
+    </form>
+    <span class="small text-muted">The latest @Model.Limit, newest first. Times in UTC.</span>
+</div>
+
+@if (Model.Errors.Count == 0)
+{
+    <p class="text-muted">@Model.Client.Name hasn't reported any errors.</p>
+}
+else
+{
+    <table class="table table-sm align-middle">
+        <thead>
+            <tr><th>Time (UTC)</th><th>Exception</th><th>Message</th><th>Path</th></tr>
+        </thead>
+        <tbody>
+            @foreach (var error in Model.Errors)
+            {
+                <tr>
+                    <td class="text-nowrap">@error.OccurredAtUtc.ToString("yyyy-MM-dd HH:mm:ss")</td>
+                    <td class="text-break" style="min-width: 14rem"><code>@error.ExceptionType</code></td>
+                    <td class="text-break">@error.Message</td>
+                    <td class="text-break" style="min-width: 8rem">@(error.Path ?? "—")</td>
+                </tr>
+            }
+        </tbody>
+    </table>
+}

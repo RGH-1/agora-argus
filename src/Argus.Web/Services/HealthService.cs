@@ -105,6 +105,10 @@ public class HealthService(
     public Task<IReadOnlyDictionary<string, decimal>> GetLatestHeartbeatAsync(int clientAppId, CancellationToken cancellationToken = default) =>
         health.GetLatestHeartbeatAsync(clientAppId, cancellationToken);
 
+
+    public Task<IReadOnlyList<ErrorEvent>> GetLatestErrorsAsync(int clientAppId, int limit, CancellationToken cancellationToken = default) =>
+        health.GetLatestErrorsAsync(clientAppId, limit, cancellationToken);
+
     public async Task MarkSilentClientsDownAsync(DateTime nowUtc, CancellationToken cancellationToken = default)
     {
         // Stopped clients aren't loaded: they said goodbye, so their silence is expected (§4.2).

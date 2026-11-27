@@ -41,5 +41,13 @@ public class HealthRepository(ArgusDbContext dbContext) : IHealthRepository
             .ToDictionaryAsync(point => point.Name, point => point.Value, cancellationToken);
     }
 
+    public async Task<IReadOnlyList<ErrorEvent>> GetLatestErrorsAsync(int clientAppId, int limit, CancellationToken cancellationToken = default) =>
+        await dbContext.ErrorEvents.AsNoTracking()
+            .Where(error => error.ClientAppId == clientAppId) // the (ClientAppId, OccurredAtUtc) index serves this and the sort
+            .OrderByDescending(error => error.OccurredAtUtc)
+            .Take(limit)
+            .ToListAsync(cancellationToken);
+
+
     public Task SaveAsync(CancellationToken cancellationToken = default) => dbContext.SaveChangesAsync(cancellationToken);
 }
