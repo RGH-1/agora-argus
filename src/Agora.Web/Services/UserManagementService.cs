@@ -5,7 +5,7 @@ using Microsoft.AspNetCore.Identity;
 
 namespace Agora.Web.Services;
 
-public sealed class UserManagementService(IUserManagementRepository repository, UserManager<ApplicationUser> userManager) : IUserManagementService
+public sealed class UserManagementService(IUserManagementRepository repository, UserManager<ApplicationUser> userManager, Argus.Client.IArgusTracker? argusTracker = null) : IUserManagementService
 {
     private const int PageSize = 25;
     public async Task<UserManagementPageViewModel> GetPageAsync(string? search, int page, CancellationToken cancellationToken = default)
@@ -28,6 +28,7 @@ public sealed class UserManagementService(IUserManagementRepository repository, 
         if (!await repository.TrySetBanStatusAsync(targetUserId, actorId, isBan, reason.Trim(), cancellationToken)) throw new UserManagementException(isBan ? "This user is already banned." : "This user is already active.");
         var updatedTarget = await userManager.FindByIdAsync(targetUserId) ?? throw new UserManagementException("The selected user no longer exists.");
         await userManager.UpdateSecurityStampAsync(updatedTarget);
+        if (isBan) await ActivityTracking.TrackAsync(argusTracker, "user.banned", targetId: targetUserId, actorId: actorId);
     }
     public async Task ChangeModeratorRoleAsync(string targetUserId, string actorId, bool grant, CancellationToken cancellationToken = default)
     {

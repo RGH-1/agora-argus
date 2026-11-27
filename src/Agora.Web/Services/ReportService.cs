@@ -6,7 +6,7 @@ using Microsoft.AspNetCore.Identity;
 
 namespace Agora.Web.Services;
 
-public sealed class ReportService(IReportRepository reportRepository, UserManager<ApplicationUser>? userManager = null, IBanStatusService? banStatusService = null) : IReportService
+public sealed class ReportService(IReportRepository reportRepository, UserManager<ApplicationUser>? userManager = null, IBanStatusService? banStatusService = null, Argus.Client.IArgusTracker? argusTracker = null) : IReportService
 {
     public async Task<Post> GetReportablePostAsync(int postId, string reporterId, CancellationToken cancellationToken = default)
     {
@@ -19,7 +19,7 @@ public sealed class ReportService(IReportRepository reportRepository, UserManage
     {
         if (string.IsNullOrWhiteSpace(reporterId)) throw new ArgumentException("Reporter ID is required.", nameof(reporterId));
         if (banStatusService is not null) await banStatusService.EnsureNotBannedAsync(reporterId, cancellationToken);
-        await GetReportablePostAsync(postId, reporterId, cancellationToken);
+        var post = await GetReportablePostAsync(postId, reporterId, cancellationToken);
         if (await reportRepository.HasOpenReportAsync(postId, reporterId, cancellationToken)) throw new OpenReportAlreadyExistsException();
         if (!CreateReportViewModel.Categories.Contains(category)) throw new ReportBusinessRuleException("Select a valid report reason.");
         var trimmedDetails = details?.Trim();
@@ -28,6 +28,7 @@ public sealed class ReportService(IReportRepository reportRepository, UserManage
         if (reason.Length > 1000) throw new ReportBusinessRuleException("Report reason cannot exceed 1000 characters.");
         var report = new Report { PostId = postId, ReportingUserId = reporterId, Reason = reason, Status = ReportStatus.Open, CreatedAtUtc = DateTime.UtcNow };
         if (await reportRepository.AddAsync(report, cancellationToken) == ReportAddResult.DuplicateOpenReport) throw new OpenReportAlreadyExistsException();
+        await ActivityTracking.TrackAsync(argusTracker, "content.reported", post.Forum.Name, post.Id.ToString(), post.Title, reporterId);
         return report;
     }
 
@@ -52,6 +53,10 @@ public sealed class ReportService(IReportRepository reportRepository, UserManage
         if (result == ModerationResolutionResult.AlreadyHandled) throw new ReportAlreadyHandledException();
         if (result == ModerationResolutionResult.AlreadyBanned) throw new ReportBusinessRuleException("This author is already banned.");
         if (result == ModerationResolutionResult.NotFound) throw new ReportNotFoundOrForbiddenException();
+        if (actionType == ModerationActionType.RemovePost)
+            await ActivityTracking.TrackAsync(argusTracker, "content.removed", report.Post.Forum.Name, report.Post.Id.ToString(), report.Post.Title, moderatorId);
+        else if (actionType == ModerationActionType.BanAuthor)
+            await ActivityTracking.TrackAsync(argusTracker, "user.banned", targetId: report.Post.AuthorId, actorId: moderatorId);
     }
 
     private async Task EnsureTargetCanBeModeratedAsync(string targetUserId, string moderatorId)

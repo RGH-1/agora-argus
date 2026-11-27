@@ -3,7 +3,7 @@ using Agora.Web.Repositories;
 
 namespace Agora.Web.Services;
 
-public class ForumService(IForumRepository forumRepository, IBanStatusService? banStatusService = null) : IForumService
+public class ForumService(IForumRepository forumRepository, IBanStatusService? banStatusService = null, Argus.Client.IArgusTracker? argusTracker = null) : IForumService
 {
     public async Task<Forum> CreateAsync(string name, string? description, string creatorId, CancellationToken cancellationToken = default)
     {
@@ -30,13 +30,15 @@ public class ForumService(IForumRepository forumRepository, IBanStatusService? b
             UpdatedAtUtc = now
         };
         var result = await forumRepository.TryCreateAsync(forum, !user.IsPro, cancellationToken);
-        return result.Failure switch
+        var created = result.Failure switch
         {
             ForumCreateFailure.None => result.Forum!,
             ForumCreateFailure.DuplicateName => throw new ForumBusinessRuleException("A forum with this name already exists."),
             ForumCreateFailure.FreeLimitReached => throw new ForumBusinessRuleException("Free members can own up to 3 forums. Upgrade to Pro to create more."),
             _ => throw new InvalidOperationException("Unexpected forum creation outcome.")
         };
+        await ActivityTracking.TrackAsync(argusTracker, "Forum.Added", created.Name, created.Id.ToString(), created.Name, creatorId);
+        return created;
     }
 
     public Task<IReadOnlyList<Forum>> GetPublicAsync(CancellationToken cancellationToken = default) =>
@@ -73,16 +75,20 @@ public class ForumService(IForumRepository forumRepository, IBanStatusService? b
 
     public async Task ApproveAsync(int id, CancellationToken cancellationToken = default)
     {
-        if (!await forumRepository.TryApproveAsync(id, cancellationToken))
+        var forum = await forumRepository.GetPendingByIdAsync(id, cancellationToken);
+        if (forum is null || !await forumRepository.TryApproveAsync(id, cancellationToken))
             throw new ForumModerationException("This forum was already reviewed or no longer exists.");
+        await ActivityTracking.TrackAsync(argusTracker, "forum.approved", forum.Name, forum.Id.ToString(), forum.Name);
     }
 
     public async Task RejectAsync(int id, string reason, CancellationToken cancellationToken = default)
     {
         if (string.IsNullOrWhiteSpace(reason)) throw new ForumBusinessRuleException("A rejection reason is required.");
         if (reason.Trim().Length > 500) throw new ForumBusinessRuleException("Rejection reasons cannot exceed 500 characters.");
-        if (!await forumRepository.TryRejectAsync(id, reason.Trim(), cancellationToken))
+        var forum = await forumRepository.GetPendingByIdAsync(id, cancellationToken);
+        if (forum is null || !await forumRepository.TryRejectAsync(id, reason.Trim(), cancellationToken))
             throw new ForumModerationException("This forum was already reviewed or no longer exists.");
+        await ActivityTracking.TrackAsync(argusTracker, "forum.rejected", forum.Name, forum.Id.ToString(), forum.Name);
     }
 
     private static string NormalizeName(string name) => name.Trim().ToUpperInvariant();

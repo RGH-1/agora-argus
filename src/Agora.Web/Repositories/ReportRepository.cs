@@ -9,7 +9,7 @@ namespace Agora.Web.Repositories;
 public sealed class ReportRepository(AgoraDbContext dbContext) : IReportRepository
 {
     public Task<Post?> GetPublicPostAsync(int postId, CancellationToken cancellationToken = default) =>
-        dbContext.Posts.AsNoTracking().FirstOrDefaultAsync(post =>
+        dbContext.Posts.AsNoTracking().Include(post => post.Forum).FirstOrDefaultAsync(post =>
             post.Id == postId && !post.IsRemoved && post.Forum.Status == ForumStatus.Approved, cancellationToken);
 
     public Task<bool> HasOpenReportAsync(int postId, string reportingUserId, CancellationToken cancellationToken = default) =>
@@ -37,7 +37,7 @@ public sealed class ReportRepository(AgoraDbContext dbContext) : IReportReposito
             .ToListAsync(cancellationToken);
 
     public Task<Report?> GetOpenForModerationAsync(int reportId, CancellationToken cancellationToken = default) =>
-        dbContext.Reports.AsNoTracking().Include(report => report.Post).ThenInclude(post => post.Author)
+        dbContext.Reports.AsNoTracking().Include(report => report.Post).ThenInclude(post => post.Author).Include(report => report.Post.Forum)
             .Include(report => report.ReportingUser).FirstOrDefaultAsync(report => report.Id == reportId, cancellationToken);
 
     public Task<Report?> GetOpenForAiCheckAsync(int reportId, CancellationToken cancellationToken = default) =>
