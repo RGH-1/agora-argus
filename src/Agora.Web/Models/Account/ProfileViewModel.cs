@@ -10,5 +10,6 @@ public class ProfileViewModel
 
     [StringLength(500)]
     public string? Bio { get; set; }
+    public bool IsPro { get; set; }
     public IReadOnlyList<UserWarning> Warnings { get; set; } = [];
 }

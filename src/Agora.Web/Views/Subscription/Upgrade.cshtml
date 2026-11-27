@@ -1,0 +1,11 @@
+@model Agora.Web.Models.Subscription.SubscriptionUpgradeViewModel
+@{ ViewData["Title"] = "Upgrade to Agora Pro"; }
+<div class="row justify-content-center"><div class="col-lg-7 col-xl-6"><div class="card shadow-sm border-primary mt-4"><div class="card-body p-4 p-md-5 text-center">
+    <h1 class="h2">Agora Pro</h1><p class="display-6 fw-bold mb-4">$4.99</p>
+    @if (Model.IsPro)
+    { <div class="alert alert-success">Your Agora Pro membership is active. Unlimited forum creation is unlocked.</div><a class="btn btn-primary" asp-controller="Forums" asp-action="Mine">Go to My Forums</a> }
+    else if (Model.IsBanned)
+    { <div class="alert alert-warning">Banned accounts cannot upgrade to Agora Pro.</div> }
+    else
+    { <p class="lead">Create unlimited forums and display a verified Pro member badge.</p><p class="text-muted">Free members can own up to three forums. Pro removes that limit while normal moderation still applies.</p><a class="btn btn-primary btn-lg px-4 mt-4" asp-action="Checkout">Continue to demo payment</a><p class="alert alert-info small mt-4 mb-0">Simulated checkout — no real payment will be charged. No card information is required.</p> }
+</div></div></div></div>

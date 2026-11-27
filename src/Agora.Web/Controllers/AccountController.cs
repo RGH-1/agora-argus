@@ -103,7 +103,7 @@ public class AccountController(
     {
         var user = await userManager.GetUserAsync(User);
         if (user is null) return Challenge();
-        return View(new ProfileViewModel { DisplayName = user.DisplayName, Bio = user.Bio, Warnings = reportService is null ? [] : await reportService.GetWarningsForUserAsync(user.Id) });
+        return View(new ProfileViewModel { DisplayName = user.DisplayName, Bio = user.Bio, IsPro = user.IsPro, Warnings = reportService is null ? [] : await reportService.GetWarningsForUserAsync(user.Id) });
     }
 
     [Authorize]

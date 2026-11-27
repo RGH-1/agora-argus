@@ -12,7 +12,7 @@ else
     <div class="row row-cols-1 row-cols-md-2 g-3">
     @foreach (var forum in Model)
     {
-        <div class="col"><div class="card h-100 forum-card"><div class="card-body"><h2 class="h5 forum-text"><a asp-action="Details" asp-route-id="@forum.Id">@forum.Name</a></h2><p class="card-text forum-text">@forum.Description</p><small class="text-muted">Created by @forum.Creator.DisplayName</small></div></div></div>
+        <div class="col"><div class="card h-100 forum-card"><div class="card-body"><h2 class="h5 forum-text"><a asp-action="Details" asp-route-id="@forum.Id">@forum.Name</a></h2><p class="card-text forum-text">@forum.Description</p><small class="text-muted">Created by @forum.Creator.DisplayName <partial name="_ProBadge" model="forum.Creator.IsPro" /></small></div></div></div>
     }
     </div>
 }

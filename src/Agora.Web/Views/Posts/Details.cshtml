@@ -10,7 +10,7 @@
 @if (TempData["StatusMessage"] is string statusMessage) { <div class="alert alert-success" role="alert">@statusMessage</div> }
 <article class="post-details">
     <h1 class="post-title">@post.Title</h1>
-    <p class="text-muted">By @post.Author.DisplayName on @post.CreatedAtUtc.ToLocalTime().ToString("g")</p>
+    <p class="text-muted">By @post.Author.DisplayName <partial name="_ProBadge" model="post.Author.IsPro" /> on @post.CreatedAtUtc.ToLocalTime().ToString("g")</p>
     <div class="mb-4 post-body">@post.Content</div>
     <div class="mb-3">
         @if (User.Identity?.IsAuthenticated == true)
@@ -54,7 +54,7 @@
         {
             <article class="card mb-3 comment-card">
                 <div class="card-body">
-                    <p class="mb-2"><strong>@comment.Author.DisplayName</strong> <span class="text-muted">on @comment.CreatedAtUtc.ToLocalTime().ToString("g")</span></p>
+                    <p class="mb-2"><strong>@comment.Author.DisplayName</strong> <partial name="_ProBadge" model="comment.Author.IsPro" /> <span class="text-muted">on @comment.CreatedAtUtc.ToLocalTime().ToString("g")</span></p>
                     <div class="comment-body">@comment.Content</div>
                     @if (User.Identity?.IsAuthenticated == true && (User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value == comment.AuthorId || User.IsInRole("Moderator") || User.IsInRole("Admin")))
                     {

@@ -1,0 +1,8 @@
+@model Agora.Web.Models.Subscription.SubscriptionResultViewModel
+@{ ViewData["Title"] = "Agora Pro"; }
+<div class="row justify-content-center"><div class="col-lg-7 col-xl-6"><div class="card shadow-sm mt-4"><div class="card-body p-4 p-md-5 text-center">
+    @if (Model.Succeeded) { <div class="display-3 text-success mb-3" aria-hidden="true">&#10003;</div><p class="text-uppercase text-success fw-semibold mb-1">Payment Approved — Simulation</p><h1 class="h2">Welcome to Agora Pro!</h1><p class="lead">@Model.Message</p><div class="border rounded bg-light p-3 text-start mx-auto" style="max-width: 30rem"><dl class="row mb-0"><dt class="col-6">Amount</dt><dd class="col-6 text-end">$4.99 USD</dd><dt class="col-6">Plan</dt><dd class="col-6 text-end">Agora Pro</dd><dt class="col-6">Payment method</dt><dd class="col-6 text-end">Demo Gateway</dd>@if (Model.TransactionTimeUtc is not null) { <dt class="col-6">UTC time</dt><dd class="col-6 text-end">@Model.TransactionTimeUtc.Value.ToString("u")</dd> }@if (Model.Reference is not null) { <dt class="col-6">Reference</dt><dd class="col-6 text-end">@Model.Reference</dd> }</dl></div><p class="mt-3 mb-0">Unlimited forums are activated and your Pro badge is active.</p><p class="text-muted small mt-2">No actual money was charged.</p> }
+    else if (Model.AlreadyPro) { <h1 class="h2">Agora Pro is active</h1><p class="lead">@Model.Message</p> }
+    else { <h1 class="h2">Checkout unavailable</h1><p class="lead">@Model.Message</p> }
+    <div class="d-flex justify-content-center gap-2 mt-4"><a class="btn btn-primary" asp-controller="Forums" asp-action="Mine">My Forums</a><a class="btn btn-outline-secondary" asp-controller="Account" asp-action="Profile">My Profile</a></div>
+</div></div></div></div>
