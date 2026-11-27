@@ -1,0 +1,36 @@
+﻿@using Argus.Web.Data.Entities
+@model Argus.Web.Services.ChartData
+@{
+    // One partial for every chart (§4.3): a number tile is drawn here, a line or bar chart by Chart.js from the JSON below.
+    var metric = Model.Metric;
+    var isTile = metric.Chart == ChartType.NumberTile;
+    var describe = isTile
+        ? $"{metric.Aggregation} of {metric.Source}"
+        : $"{metric.Aggregation} of {metric.Source} per {metric.Bucket.ToString().ToLower()}"
+          + (metric.GroupBy == MetricGroupBy.None ? "" : $", top {metric.GroupBy.ToString().ToLower()}s");
+}
+
+<div class="card h-100">
+    <div class="card-header py-2">
+        <strong>@metric.Name</strong>
+        <div class="small text-muted">@describe</div>
+    </div>
+    <div class="card-body">
+        @if (isTile)
+        {
+            <div class="display-6">@(Model.Total?.ToString("0.##") ?? "—")</div>
+        }
+        else if (!Model.HasData)
+        {
+            <p class="text-muted small mb-0">No data in this time range.</p>
+        }
+        else
+        {
+            <div style="height: 240px">
+                <canvas data-chart="chart-data-@metric.Id" role="img" aria-label="@metric.Name"></canvas>
+            </div>
+            @* Json.Serialize escapes < and >, so a forum name or post title can't break out of the script tag. *@
+            <script type="application/json" id="chart-data-@metric.Id">@Json.Serialize(new { type = metric.Chart == ChartType.Bar ? "bar" : "line", labels = Model.Labels, series = Model.Series })</script>
+        }
+    </div>
+</div>

@@ -26,6 +26,9 @@
                                 <a class="nav-link text-dark" asp-area="" asp-controller="Home" asp-action="Index">Status Board</a>
                             </li>
                             <li class="nav-item">
+                                <a class="nav-link text-dark" asp-area="" asp-controller="Dashboard" asp-action="Index">Dashboard</a>
+                            </li>
+                            <li class="nav-item">
                                 <a class="nav-link text-dark" asp-area="" asp-controller="Incidents" asp-action="Index">Incidents</a>
                             </li>
                             @if (User.IsInRole(Argus.Web.Data.ArgusRoles.Admin))
