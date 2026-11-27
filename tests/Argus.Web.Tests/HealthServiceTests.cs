@@ -301,4 +301,26 @@ public class HealthServiceTests : IAsyncLifetime
 
         Assert.Equal(before, await _db.MetricDefinitions.CountAsync());
     }
+
+    [Fact]
+    public async Task Error_log_shows_the_clients_newest_errors_first_up_to_the_limit()
+    {
+        var now = DateTimeOffset.UtcNow;
+        foreach (var (clientId, message, minutesAgo) in new[] { ("agora", "oldest", 3), ("agora", "newest", 1), ("agora", "middle", 2), ("demo", "other client", 0) })
+        {
+            await _service.ProcessAsync(new ErrorReported
+            {
+                ClientId = clientId,
+                Message = message,
+                ExceptionType = "System.InvalidOperationException",
+                Path = "/Forums",
+                OccurredAt = now.AddMinutes(-minutesAgo),
+            });
+        }
+
+        var errors = await _service.GetLatestErrorsAsync(clientAppId: 1, limit: 2);
+
+        Assert.Equal(["newest", "middle"], errors.Select(error => error.Message));
+        Assert.Equal(("System.InvalidOperationException", "/Forums"), (errors[0].ExceptionType, errors[0].Path));
+    }
 }
