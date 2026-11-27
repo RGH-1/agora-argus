@@ -13,7 +13,7 @@ public sealed class CommentRepository(AgoraDbContext dbContext) : ICommentReposi
             .ToListAsync(cancellationToken);
 
     public Task<Post?> GetPublicPostAsync(int postId, CancellationToken cancellationToken = default) =>
-        dbContext.Posts.AsNoTracking().FirstOrDefaultAsync(post =>
+        dbContext.Posts.AsNoTracking().Include(post => post.Forum).FirstOrDefaultAsync(post =>
             post.Id == postId && !post.IsRemoved && post.Forum.Status == ForumStatus.Approved, cancellationToken);
 
     public Task<ApplicationUser?> GetUserAsync(string userId, CancellationToken cancellationToken = default) =>

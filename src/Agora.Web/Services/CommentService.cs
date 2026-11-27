@@ -3,7 +3,7 @@ using Agora.Web.Repositories;
 
 namespace Agora.Web.Services;
 
-public sealed class CommentService(ICommentRepository commentRepository) : ICommentService
+public sealed class CommentService(ICommentRepository commentRepository, Argus.Client.IArgusTracker? argusTracker = null) : ICommentService
 {
     public Task<IReadOnlyList<Comment>> GetForPublicPostAsync(int postId, CancellationToken cancellationToken = default) =>
         commentRepository.GetForPublicPostAsync(postId, cancellationToken);
@@ -13,13 +13,14 @@ public sealed class CommentService(ICommentRepository commentRepository) : IComm
         if (string.IsNullOrWhiteSpace(content)) throw new CommentBusinessRuleException("Comment content is required.");
         if (content.Trim().Length > 2000) throw new CommentBusinessRuleException("Comments cannot exceed 2000 characters.");
         if (string.IsNullOrWhiteSpace(authorId)) throw new ArgumentException("Author ID is required.", nameof(authorId));
-        if (await commentRepository.GetPublicPostAsync(postId, cancellationToken) is null) throw new CommentNotFoundOrForbiddenException();
+        var post = await commentRepository.GetPublicPostAsync(postId, cancellationToken) ?? throw new CommentNotFoundOrForbiddenException();
         var author = await commentRepository.GetUserAsync(authorId, cancellationToken) ?? throw new CommentNotFoundOrForbiddenException();
         if (author.IsBanned) throw new CommentBusinessRuleException("Banned users cannot add comments.");
 
         var now = DateTime.UtcNow;
         var comment = new Comment { PostId = postId, AuthorId = authorId, Content = content.Trim(), CreatedAtUtc = now, UpdatedAtUtc = now };
         await commentRepository.AddAsync(comment, cancellationToken);
+        await ActivityTracking.TrackAsync(argusTracker, "Comment.Added", post.Forum.Name, post.Id.ToString(), post.Title, authorId);
         return comment;
     }
 

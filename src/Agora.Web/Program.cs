@@ -20,7 +20,8 @@ builder.Services.AddDbContext<AgoraDbContext>(options =>
     options.UseSqlServer(connectionString));
 builder.Services.AddHealthChecks()
     .AddCheck<AgoraDatabaseHealthCheck>("AgoraDb");
-builder.Services.AddArgus(builder.Configuration.GetSection("Argus"));
+builder.Services.AddArgus(builder.Configuration.GetSection("Argus"))
+    .AddGauge<AgoraDbContext>("reports.pending", async db => (decimal)await db.Reports.CountAsync(report => report.Status == ReportStatus.Open));
 builder.Services
     .AddIdentity<ApplicationUser, IdentityRole>()
     .AddEntityFrameworkStores<AgoraDbContext>()
@@ -65,6 +66,7 @@ builder.Services.AddScoped<IRuleRepository, RuleRepository>();
 builder.Services.AddScoped<IRuleService, RuleService>();
 builder.Services.AddScoped<ISubscriptionRepository, SubscriptionRepository>();
 builder.Services.AddScoped<ISubscriptionService, SubscriptionService>();
+builder.Services.AddScoped<IRegistrationService, RegistrationService>();
 builder.Services.AddScoped<DevelopmentDatabaseSeeder>();
 
 var app = builder.Build();

@@ -11,7 +11,8 @@ public class AccountController(
     UserManager<ApplicationUser> userManager,
     SignInManager<ApplicationUser> signInManager,
     RoleManager<IdentityRole> roleManager,
-    IReportService? reportService = null) : Controller
+    IReportService? reportService = null,
+    IRegistrationService? registrationService = null) : Controller
 {
     [AllowAnonymous]
     [HttpGet]
@@ -24,33 +25,17 @@ public class AccountController(
     {
         if (!ModelState.IsValid) return View(model);
 
-        if (!await roleManager.RoleExistsAsync("Member"))
-        {
-            ModelState.AddModelError(string.Empty, "Registration is temporarily unavailable. Please try again later.");
-            return View(model);
-        }
-
-        var user = new ApplicationUser
-        {
-            UserName = model.UserName.Trim(),
-            Email = model.Email.Trim(),
-            DisplayName = model.DisplayName.Trim()
-        };
-        var result = await userManager.CreateAsync(user, model.Password);
+        var operation = registrationService is null
+            ? await RegisterWithoutTrackingAsync(model)
+            : await registrationService.RegisterAsync(model.UserName, model.Email, model.DisplayName, model.Password);
+        var result = operation.Result;
         if (!result.Succeeded)
         {
             AddIdentityErrors(result);
             return View(model);
         }
 
-        var roleResult = await userManager.AddToRoleAsync(user, "Member");
-        if (!roleResult.Succeeded)
-        {
-            AddIdentityErrors(roleResult);
-            return View(model);
-        }
-
-        await signInManager.SignInAsync(user, isPersistent: false);
+        await signInManager.SignInAsync(operation.User!, isPersistent: false);
         return RedirectToLocal(model.ReturnUrl);
     }
 
@@ -137,5 +122,16 @@ public class AccountController(
     private void AddIdentityErrors(IdentityResult result)
     {
         foreach (var error in result.Errors) ModelState.AddModelError(string.Empty, error.Description);
+    }
+
+    private async Task<RegistrationOperationResult> RegisterWithoutTrackingAsync(RegisterViewModel model)
+    {
+        if (!await roleManager.RoleExistsAsync("Member"))
+            return new(null, IdentityResult.Failed(new IdentityError { Description = "Registration is temporarily unavailable. Please try again later." }));
+        var user = new ApplicationUser { UserName = model.UserName.Trim(), Email = model.Email.Trim(), DisplayName = model.DisplayName.Trim() };
+        var result = await userManager.CreateAsync(user, model.Password);
+        if (!result.Succeeded) return new(null, result);
+        result = await userManager.AddToRoleAsync(user, "Member");
+        return new(result.Succeeded ? user : null, result);
     }
 }

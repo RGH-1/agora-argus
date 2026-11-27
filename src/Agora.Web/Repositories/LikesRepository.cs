@@ -8,7 +8,7 @@ namespace Agora.Web.Repositories;
 public sealed class LikesRepository(AgoraDbContext dbContext) : ILikesRepository
 {
     public Task<Post?> GetPublicPostAsync(int postId, CancellationToken cancellationToken = default) =>
-        dbContext.Posts.AsNoTracking().FirstOrDefaultAsync(post =>
+        dbContext.Posts.AsNoTracking().Include(post => post.Forum).FirstOrDefaultAsync(post =>
             post.Id == postId && !post.IsRemoved && post.Forum.Status == ForumStatus.Approved, cancellationToken);
 
     public Task<LikeStatus?> GetStatusForPublicPostAsync(int postId, string? userId, CancellationToken cancellationToken = default) =>
