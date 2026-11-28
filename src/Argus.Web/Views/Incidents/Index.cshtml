@@ -1,24 +1,16 @@
 ﻿@using Argus.Web.Data.Entities
 @model IReadOnlyList<Incident>
 @{
-    var clientId = ViewData["ClientId"] as string;
-    ViewData["Title"] = clientId is null ? "Incidents" : $"Incidents - {clientId}";
+    var client = (ClientApp)ViewData["Client"]!;
+    ViewData["Title"] = $"Incidents - {client.Name}";
 }
 
-<div class="d-flex align-items-baseline gap-3 mb-3">
-    <h1 class="h3 mb-0">Incidents @if (clientId is not null) {
-        <small class="text-muted">@clientId</small>
-    }
-</h1>
-@if (clientId is not null)
-{
-    <a asp-action="Index" asp-route-clientId="">All clients</a>
-}
-</div>
+<h1 class="h3 mb-3">Incidents <small class="text-muted">@client.Name</small></h1>
+
 
 @if (Model.Count == 0)
 {
-    <p class="text-muted">No incidents. Every client has been healthy (or stopped on purpose).</p>
+    <p class="text-muted">No incidents. @client.Name has been healthy (or stopped on purpose).</p>
 }
 else
 {

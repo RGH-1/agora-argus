@@ -4,16 +4,7 @@
 }
 
 <div class="d-flex flex-wrap align-items-center gap-3 mb-3">
-    <h1 class="h3 mb-0">Errors</h1>
-    <form asp-action="Index" method="get">
-        <select name="clientId" class="form-select form-select-sm" aria-label="Client" onchange="this.form.submit()">
-            @foreach (var client in Model.Clients)
-            {
-                <option value="@client.ClientId" selected="@(client.Id == Model.Client.Id)">@client.Name</option>
-            }
-        </select>
-        <noscript><button class="btn btn-sm btn-primary">Show</button></noscript>
-    </form>
+    <h1 class="h3 mb-0">Errors <small class="text-muted">@Model.Client.Name</small></h1>
     <span class="small text-muted">The latest @Model.Limit, newest first. Times in UTC.</span>
 </div>
 

@@ -6,14 +6,8 @@
 }
 
 <div class="d-flex flex-wrap align-items-center gap-3 mb-3">
-    <h1 class="h3 mb-0">Dashboard</h1>
+    <h1 class="h3 mb-0">Dashboard <small class="text-muted">@Model.Client.Name</small></h1>
     <form asp-action="Index" method="get" class="d-flex gap-2">
-        <select name="clientId" class="form-select form-select-sm" aria-label="Client" onchange="this.form.submit()">
-            @foreach (var client in Model.Clients)
-            {
-                <option value="@client.ClientId" selected="@(client.Id == Model.Client.Id)">@client.Name</option>
-            }
-        </select>
         <select name="range" class="form-select form-select-sm" aria-label="Time range" onchange="this.form.submit()">
             @foreach (var range in DashboardController.Ranges.Keys)
             {

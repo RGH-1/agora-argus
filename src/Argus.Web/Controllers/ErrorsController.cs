@@ -9,16 +9,15 @@ public class ErrorsController(IClientAppService clientAppService, IHealthService
     /// <summary>The newest errors only: enough to see what went wrong during an incident.</summary>
     private const int Limit = 100;
 
-    /// <summary>The error log (§4.2) of one client; the first client when none is chosen.</summary>
+    /// <summary>The error log (§4.2) of one client: the one chosen in the client switcher, or ?clientId=.</summary>
     public async Task<IActionResult> Index(string? clientId, CancellationToken cancellationToken)
     {
         var clients = await clientAppService.GetAllAsync(cancellationToken);
-        var client = clientId is null ? clients.FirstOrDefault() : clients.FirstOrDefault(app => app.ClientId == clientId);
+        var client = ClientSelection.Resolve(HttpContext, clients, clientId);
         if (client is null) return NotFound();
 
         return View(new ErrorLogViewModel
         {
-            Clients = clients,
             Client = client,
             Errors = await healthService.GetLatestErrorsAsync(client.Id, Limit, cancellationToken),
             Limit = Limit,
