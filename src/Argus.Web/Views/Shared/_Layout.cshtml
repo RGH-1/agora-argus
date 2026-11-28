@@ -64,6 +64,12 @@
             &copy; 2026 - Argus.Web - <a asp-area="" asp-controller="Home" asp-action="Privacy">Privacy</a>
         </div>
     </footer>
+    @if (User.Identity?.IsAuthenticated == true)
+    {
+        @* Incident alerts from site.js appear here, on every page (AA-40). The hub requires login, so only then. *@
+        <div id="alerts" class="toast-container position-fixed bottom-0 end-0 p-3" aria-live="polite"></div>
+        <script src="~/lib/microsoft-signalr/signalr.min.js"></script>
+    }
     <script src="~/lib/jquery/dist/jquery.min.js"></script>
     <script src="~/lib/bootstrap/dist/js/bootstrap.bundle.min.js"></script>
     <script src="~/js/site.js" asp-append-version="true"></script>

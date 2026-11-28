@@ -1,139 +1,23 @@
-﻿@using Argus.Contracts
-@model IReadOnlyList<Argus.Web.Models.Status.ClientStatusViewModel>
+﻿@model IReadOnlyList<Argus.Web.Models.Status.ClientStatusViewModel>
 @{
     ViewData["Title"] = "Status board";
-
-    // Green / yellow / red / gray (§4.2). Unknown means Argus hasn't heard from the client yet.
-    string BadgeClass(HealthStatus health) => health switch
-    {
-        HealthStatus.Healthy => "text-bg-success",
-        HealthStatus.Degraded => "text-bg-warning",
-        HealthStatus.Down => "text-bg-danger",
-        HealthStatus.Stopped => "text-bg-secondary",
-        _ => "text-bg-light border",
-    };
-
-    string Show(IReadOnlyDictionary<string, decimal> latest, string name, string unit = "") =>
-        latest.TryGetValue(name, out var value) ? $"{value:0.#} {unit}".Trim() : "—";
 }
 
 <h1 class="h3 mb-3">Status board</h1>
 
-<div class="row row-cols-1 row-cols-md-2 row-cols-xl-3 g-3">
-    @foreach (var card in Model)
-    {
-        var client = card.Client;
-        var latest = card.Latest;
-        <div class="col">
-            <div class="card h-100">
-                <div class="card-header d-flex justify-content-between align-items-center">
-                    <span>
-                        <strong>@client.Name</strong> <small class="text-muted">@client.ClientId</small>
-                        @if (client.IsSuspended)
-                        {
-                            <span class="badge text-bg-dark ms-1">Suspended</span>
-                        }
-                        @if (client.InMaintenance)
-                        {
-                            <span class="badge text-bg-warning ms-1">Maintenance</span>
-                        }
-                    </span>
-                    <span class="badge fs-6 @BadgeClass(client.Health)">@client.Health</span>
-                </div>
-                <div class="card-body">
-                    <dl class="row mb-0 small">
-                        <dt class="col-6">Last heartbeat</dt>
-                        <dd class="col-6">
-                            @if (client.LastHeartbeatAtUtc is { } last)
-                            {
-                                @($"{last:HH:mm:ss} UTC")
-                                <span class="text-muted">(@((int)(DateTime.UtcNow - last).TotalSeconds) s ago)</span>
-                            }
-                            else
-                            {
-                                <span class="text-muted">never</span>
-                            }
-                        </dd>
-                        @if (client.InMaintenance)
-                        {
-                            <dt class="col-6">Maintenance</dt>
-                            <dd class="col-6">@(client.MaintenanceMessage ?? "on")</dd>
-                        }
-
-                        <dt class="col-6">Version</dt>
-                        <dd class="col-6">@(client.Version ?? "—")</dd>
-
-                        <dt class="col-6">Database</dt>
-                        <dd class="col-6">
-                            @switch (latest.GetValueOrDefault("sys.db_healthy", -1))
-                            {
-                                case 1:
-                                    <span class="text-success">OK</span>
-                                    break;
-                                case 0:
-
-                                    <span class="text-danger">Failing</span>
-                                    break;
-                                default:
-
-                                    <span class="text-muted">—</span>
-                                    break;
-                            }
-                            @if (latest.ContainsKey("sys.db_response_ms"))
-                            {
-                                <span class="text-muted">(@Show(latest, "sys.db_response_ms", "ms"))</span>
-                            }
-                        </dd>
-
-                        <dt class="col-6">Memory</dt>
-                        <dd class="col-6">@Show(latest, "sys.memory_mb", "MB")</dd>
-
-                        @* Requests, errors and the average cover only the interval since the previous heartbeat. *@
-                        <dt class="col-6">Requests / errors</dt>
-                        <dd class="col-6">@Show(latest, "sys.requests") / @Show(latest, "sys.errors")</dd>
-
-                        <dt class="col-6">Avg response</dt>
-                        <dd class="col-6">@Show(latest, "sys.avg_response_ms", "ms")</dd>
-                    </dl>
-
-                    @if (card.OpenIncident is { } incident)
-                    {
-                        <a asp-controller="Incidents" asp-action="Details" asp-route-id="@incident.Id"
-                           class="alert alert-danger d-block small mt-3 mb-0 py-2 text-decoration-none">
-                            Open incident since @incident.OpenedAtUtc.ToString("HH:mm:ss") UTC: @incident.Reason
-                        </a>
-                    }
-                </div>
-                <div class="card-footer small d-flex justify-content-between align-items-center gap-2">
-                    <span class="d-flex gap-2">
-                        <a asp-controller="Dashboard" asp-action="Index" asp-route-clientId="@client.ClientId">Dashboard</a>
-                        <a asp-controller="Incidents" asp-action="Index" asp-route-clientId="@client.ClientId">Incidents</a>
-                        <a asp-controller="Errors" asp-action="Index" asp-route-clientId="@client.ClientId">Errors</a>
-                    </span>
-                    <form asp-controller="ClientApps" asp-action="Maintenance" method="post" class="d-flex gap-1">
-                        <input type="hidden" name="clientId" value="@client.ClientId" />
-                        <input type="hidden" name="enabled" value="@(client.InMaintenance ? "false" : "true")" />
-                        @if (!client.InMaintenance)
-                        {
-                            <input name="message" maxlength="200" class="form-control form-control-sm"
-                                   placeholder="Message (optional)" aria-label="Maintenance message for @client.Name" />
-                        }
-                        <button class="btn btn-sm text-nowrap @(client.InMaintenance ? "btn-outline-secondary" : "btn-outline-warning")">
-                            @(client.InMaintenance ? "End maintenance" : "Start maintenance")
-                        </button>
-                    </form>
-                </div>
-            </div>
-        </div>
-    }
+<div id="board">
+    <partial name="_Board" model="Model" />
 </div>
 
 @section Scripts {
     <script>
-        // Waits while someone is typing a maintenance message, so the reload doesn't wipe it.
-        setTimeout(function reload() {
-            if (document.activeElement?.tagName === "INPUT") return setTimeout(reload, 10000);
-            location.reload();
-        }, 10000);
+        // Live (AA-40): site.js raises argus:board-changed when Argus pushes a change; only the cards are reloaded.
+        document.addEventListener("argus:board-changed", async () => {
+            const board = document.getElementById("board");
+            if (board.contains(document.activeElement) && document.activeElement.tagName === "INPUT") return; // keep a maintenance message being typed
+
+            const response = await fetch("@Url.Action("Board")");
+            if (response.ok && !response.redirected) board.innerHTML = await response.text(); // redirected = logged out: keep the old cards
+        });
     </script>
 }
