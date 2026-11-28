@@ -9,7 +9,7 @@
     <link rel="stylesheet" href="~/css/site.css" asp-append-version="true" />
     <link rel="stylesheet" href="~/Agora.Web.styles.css" asp-append-version="true" />
 </head>
-<body>
+<body data-authenticated="@(User.Identity?.IsAuthenticated == true ? "true" : "")">
     <header>
         <nav class="navbar navbar-expand-lg navbar-toggleable-lg navbar-light bg-white border-bottom box-shadow mb-3">
             <div class="container-fluid">
@@ -95,8 +95,10 @@
             &copy; 2026 - Agora.Web - <a asp-area="" asp-controller="Home" asp-action="Privacy">Privacy</a>
         </div>
     </footer>
+    <div id="notification-toasts" class="toast-container position-fixed top-0 end-0 p-3" aria-live="polite" aria-atomic="true"></div>
     <script src="~/lib/jquery/dist/jquery.min.js"></script>
     <script src="~/lib/bootstrap/dist/js/bootstrap.bundle.min.js"></script>
+    @if (User.Identity?.IsAuthenticated == true) { <script src="~/lib/microsoft-signalr/dist/browser/signalr.min.js" asp-append-version="true"></script><script src="~/js/notifications.js" asp-append-version="true"></script> }
     <script src="~/js/site.js" asp-append-version="true"></script>
     @await RenderSectionAsync("Scripts", required: false)
 </body>

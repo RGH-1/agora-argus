@@ -6,7 +6,7 @@ using Microsoft.AspNetCore.Identity;
 
 namespace Agora.Web.Services;
 
-public sealed class ReportService(IReportRepository reportRepository, UserManager<ApplicationUser>? userManager = null, IBanStatusService? banStatusService = null, Argus.Client.IArgusTracker? argusTracker = null) : IReportService
+public sealed class ReportService(IReportRepository reportRepository, UserManager<ApplicationUser>? userManager = null, IBanStatusService? banStatusService = null, Argus.Client.IArgusTracker? argusTracker = null, IRealtimeNotificationService? realtimeNotifications = null) : IReportService
 {
     public async Task<Post> GetReportablePostAsync(int postId, string reporterId, CancellationToken cancellationToken = default)
     {
@@ -29,6 +29,7 @@ public sealed class ReportService(IReportRepository reportRepository, UserManage
         var report = new Report { PostId = postId, ReportingUserId = reporterId, Reason = reason, Status = ReportStatus.Open, CreatedAtUtc = DateTime.UtcNow };
         if (await reportRepository.AddAsync(report, cancellationToken) == ReportAddResult.DuplicateOpenReport) throw new OpenReportAlreadyExistsException();
         await ActivityTracking.TrackAsync(argusTracker, "content.reported", post.Forum.Name, post.Id.ToString(), post.Title, reporterId);
+        await NotifyAsync(() => realtimeNotifications?.PendingReportCreatedAsync(report.Id));
         return report;
     }
 
@@ -54,9 +55,18 @@ public sealed class ReportService(IReportRepository reportRepository, UserManage
         if (result == ModerationResolutionResult.AlreadyBanned) throw new ReportBusinessRuleException("This author is already banned.");
         if (result == ModerationResolutionResult.NotFound) throw new ReportNotFoundOrForbiddenException();
         if (actionType == ModerationActionType.RemovePost)
+        {
             await ActivityTracking.TrackAsync(argusTracker, "content.removed", report.Post.Forum.Name, report.Post.Id.ToString(), report.Post.Title, moderatorId);
+            await NotifyAsync(() => realtimeNotifications?.PostRemovedAsync(report.Post.AuthorId, report.Post.Id, report.Post.Title));
+        }
+        else if (actionType == ModerationActionType.WarnAuthor)
+            await NotifyAsync(() => realtimeNotifications?.WarningIssuedAsync(report.Post.AuthorId));
         else if (actionType == ModerationActionType.BanAuthor)
+        {
             await ActivityTracking.TrackAsync(argusTracker, "user.banned", targetId: report.Post.AuthorId, actorId: moderatorId);
+            await NotifyAsync(() => realtimeNotifications?.UserBannedAsync(report.Post.AuthorId));
+        }
+        await NotifyAsync(() => realtimeNotifications?.ModerationQueueChangedAsync("reports"));
     }
 
     private async Task EnsureTargetCanBeModeratedAsync(string targetUserId, string moderatorId)
@@ -70,6 +80,7 @@ public sealed class ReportService(IReportRepository reportRepository, UserManage
             if (!await userManager.IsInRoleAsync(moderator, "Admin")) throw new ReportBusinessRuleException("Only an Admin can moderate a Moderator account.");
         }
     }
+    private static async Task NotifyAsync(Func<Task?> send) { var task = send(); if (task is not null) try { await task; } catch { } }
 }
 
 public sealed class ReportBusinessRuleException(string message) : Exception(message);

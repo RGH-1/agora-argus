@@ -31,6 +31,14 @@ public class ForumsController(IForumService forumService, IPostService postServi
 
     [Authorize]
     [HttpGet]
+    public async Task<IActionResult> MineList()
+    {
+        var userId = userManager.GetUserId(User);
+        return userId is null ? Challenge() : PartialView("_MineList", await forumService.GetMineAsync(userId));
+    }
+
+    [Authorize]
+    [HttpGet]
     public IActionResult Create() => View(new CreateForumViewModel());
 
     [Authorize]

@@ -3,7 +3,7 @@ using Agora.Web.Repositories;
 
 namespace Agora.Web.Services;
 
-public class ForumService(IForumRepository forumRepository, IBanStatusService? banStatusService = null, Argus.Client.IArgusTracker? argusTracker = null) : IForumService
+public class ForumService(IForumRepository forumRepository, IBanStatusService? banStatusService = null, Argus.Client.IArgusTracker? argusTracker = null, IRealtimeNotificationService? realtimeNotifications = null) : IForumService
 {
     public async Task<Forum> CreateAsync(string name, string? description, string creatorId, CancellationToken cancellationToken = default)
     {
@@ -38,6 +38,7 @@ public class ForumService(IForumRepository forumRepository, IBanStatusService? b
             _ => throw new InvalidOperationException("Unexpected forum creation outcome.")
         };
         await ActivityTracking.TrackAsync(argusTracker, "Forum.Added", created.Name, created.Id.ToString(), created.Name, creatorId);
+        if (created.Status == ForumStatus.Pending) await NotifyAsync(() => realtimeNotifications?.PendingForumCreatedAsync(created.Id, created.Name));
         return created;
     }
 
@@ -79,6 +80,8 @@ public class ForumService(IForumRepository forumRepository, IBanStatusService? b
         if (forum is null || !await forumRepository.TryApproveAsync(id, cancellationToken))
             throw new ForumModerationException("This forum was already reviewed or no longer exists.");
         await ActivityTracking.TrackAsync(argusTracker, "forum.approved", forum.Name, forum.Id.ToString(), forum.Name);
+        await NotifyAsync(() => realtimeNotifications?.ForumApprovedAsync(forum.CreatorId, forum.Id, forum.Name));
+        await NotifyAsync(() => realtimeNotifications?.ModerationQueueChangedAsync("forums"));
     }
 
     public async Task RejectAsync(int id, string reason, CancellationToken cancellationToken = default)
@@ -89,9 +92,12 @@ public class ForumService(IForumRepository forumRepository, IBanStatusService? b
         if (forum is null || !await forumRepository.TryRejectAsync(id, reason.Trim(), cancellationToken))
             throw new ForumModerationException("This forum was already reviewed or no longer exists.");
         await ActivityTracking.TrackAsync(argusTracker, "forum.rejected", forum.Name, forum.Id.ToString(), forum.Name);
+        await NotifyAsync(() => realtimeNotifications?.ForumRejectedAsync(forum.CreatorId, forum.Id, forum.Name));
+        await NotifyAsync(() => realtimeNotifications?.ModerationQueueChangedAsync("forums"));
     }
 
     private static string NormalizeName(string name) => name.Trim().ToUpperInvariant();
+    private static async Task NotifyAsync(Func<Task?> send) { var task = send(); if (task is not null) try { await task; } catch { } }
     private async Task<bool> IsBannedAsync(string userId, CancellationToken cancellationToken) { try { if (banStatusService is not null) await banStatusService.EnsureNotBannedAsync(userId, cancellationToken); return false; } catch (BannedUserException) { return true; } }
 }
 

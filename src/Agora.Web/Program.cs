@@ -12,6 +12,7 @@ var builder = WebApplication.CreateBuilder(args);
 
 // Add services to the container.
 builder.Services.AddControllersWithViews();
+builder.Services.AddSignalR();
 var connectionString = builder.Configuration.GetConnectionString("AgoraDb")
     ?? throw new InvalidOperationException(
         "Connection string 'ConnectionStrings:AgoraDb' is required. Configure it in User Secrets for local development.");
@@ -67,6 +68,7 @@ builder.Services.AddScoped<IRuleService, RuleService>();
 builder.Services.AddScoped<ISubscriptionRepository, SubscriptionRepository>();
 builder.Services.AddScoped<ISubscriptionService, SubscriptionService>();
 builder.Services.AddScoped<IRegistrationService, RegistrationService>();
+builder.Services.AddScoped<IRealtimeNotificationService, RealtimeNotificationService>();
 builder.Services.AddScoped<DevelopmentDatabaseSeeder>();
 
 var app = builder.Build();
@@ -95,6 +97,7 @@ app.UseAuthentication();
 app.UseAuthorization();
 
 app.MapStaticAssets();
+app.MapHub<Agora.Web.Hubs.AgoraNotificationHub>("/hubs/notifications");
 
 app.MapControllerRoute(
     name: "areas",
