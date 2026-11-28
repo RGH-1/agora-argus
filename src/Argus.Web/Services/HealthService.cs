@@ -13,6 +13,7 @@ public class HealthService(
     IHealthRepository health,
     IIncidentRepository incidents,
     IClientNotifier notifier,
+    IStatusBoardNotifier board,
     ILogger<HealthService> logger) : IHealthService
 {
     // Status changes made in this unit of work; sent to the clients only after they are saved.
@@ -100,6 +101,8 @@ public class HealthService(
         health.MarkProcessed(message.MessageId);
         await health.SaveAsync(cancellationToken);
         await NotifyChangesAsync(cancellationToken);
+        // Only these change what the status board shows; analytics events and errors don't.
+        if (message is Heartbeat or ClientStarted or ClientStopping) await board.BoardChangedAsync(cancellationToken);
     }
 
     public Task<IReadOnlyDictionary<string, decimal>> GetLatestHeartbeatAsync(int clientAppId, CancellationToken cancellationToken = default) =>
@@ -165,13 +168,17 @@ public class HealthService(
         _changes.Add((client, change, incident));
     }
 
-    /// <summary>Only after SaveAsync: the client never hears about a change that wasn't stored, and a new incident has its Id.</summary>
+    /// <summary>
+    /// Only after SaveAsync: nobody hears about a change that wasn't stored, and a new incident has its Id.
+    /// The client gets HealthStatusChanged (RabbitMQ), and every open Argus page an alert (SignalR).
+    /// </summary>
     private async Task NotifyChangesAsync(CancellationToken cancellationToken)
     {
         foreach (var (client, change, incident) in _changes)
         {
             change.IncidentId = incident?.Id;
             await notifier.SendAsync(client.ClientId, change, cancellationToken);
+            await board.StatusChangedAsync(client, change, incident, cancellationToken);
         }
         _changes.Clear();
     }

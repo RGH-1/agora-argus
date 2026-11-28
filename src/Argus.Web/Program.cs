@@ -1,6 +1,7 @@
 using Argus.Contracts;
 using Argus.Web.Consumers;
 using Argus.Web.Data;
+using Argus.Web.Hubs;
 using Argus.Web.Repositories;
 using Argus.Web.Services;
 using Argus.Web.Data.Seeding;
@@ -47,6 +48,11 @@ builder.Services.AddSingleton(provider => new ArgusConnection(rabbitMq, "argus",
 builder.Services.AddHostedService(provider => provider.GetRequiredService<ArgusConnection>());
 builder.Services.AddSingleton<ArgusPublisher>();
 builder.Services.AddSingleton<IClientNotifier, ClientNotifier>();
+
+// Live status board and incident alerts (§4.2): Argus pushes changes to the open pages.
+builder.Services.AddSignalR();
+builder.Services.AddSingleton<IStatusBoardNotifier, StatusBoardNotifier>();
+
 builder.Services.AddHostedService<HealthConsumer>();
 builder.Services.AddHostedService<AnalyticsConsumer>();
 builder.Services.AddHostedService<HealthWatchdog>();
@@ -77,6 +83,8 @@ app.UseAuthentication();
 app.UseAuthorization();
 
 app.MapStaticAssets();
+
+app.MapHub<StatusHub>("/hubs/status");
 
 app.MapControllerRoute(
     name: "default",

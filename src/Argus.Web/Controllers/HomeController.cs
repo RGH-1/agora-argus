@@ -10,7 +10,12 @@ namespace Argus.Web.Controllers;
 public class HomeController(IClientAppService clientAppService, IHealthService healthService, IIncidentService incidentService) : Controller
 {
     /// <summary>The status board (§4.2): one card per client app.</summary>
-    public async Task<IActionResult> Index(CancellationToken cancellationToken)
+    public async Task<IActionResult> Index(CancellationToken cancellationToken) => View(await GetBoardAsync(cancellationToken));
+
+    /// <summary>Only the cards: the status board reloads them when Argus pushes a change (AA-40).</summary>
+    public async Task<IActionResult> Board(CancellationToken cancellationToken) => PartialView("_Board", await GetBoardAsync(cancellationToken));
+
+    private async Task<List<ClientStatusViewModel>> GetBoardAsync(CancellationToken cancellationToken)
     {
         var board = new List<ClientStatusViewModel>();
         foreach (var client in await clientAppService.GetAllAsync(cancellationToken)) // only a handful of clients, so one small query each is fine
@@ -22,7 +27,7 @@ public class HomeController(IClientAppService clientAppService, IHealthService h
                 OpenIncident = await incidentService.GetOpenAsync(client.Id, cancellationToken),
             });
         }
-        return View(board);
+        return board;
     }
 
     public IActionResult Privacy()
