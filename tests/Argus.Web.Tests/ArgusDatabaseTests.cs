@@ -1,6 +1,8 @@
 ﻿using Argus.Contracts;
 using Argus.Contracts.Outbound;
 using Argus.Web.Data;
+using Argus.Web.Data.Entities;
+using System.ComponentModel.DataAnnotations;
 using Argus.Web.Repositories;
 using Argus.Web.Services;
 using Microsoft.Data.Sqlite;
@@ -96,5 +98,44 @@ public class ArgusDatabaseTests : IAsyncLifetime
         var sent = _notifier.Sent.Select(item => (item.ClientId, ((MaintenanceModeChanged)item.Message).Enabled)).ToList();
         Assert.Equal([("agora", true), ("agora", false)], sent);
         Assert.False(await _service.SetMaintenanceAsync("ghost", true, null)); // unknown client
+    }
+
+    [Fact]
+    public async Task Update_saves_name_suspension_and_thresholds()
+    {
+        var settings = new ClientAppSettings { Name = " Agora forum ", IsSuspended = true, HeartbeatTimeoutSec = 60, SlowDbMs = 200, MaxErrorRatePercent = 10 };
+
+        Assert.True(await _service.UpdateAsync("agora", settings));
+
+        var agora = await _db.ClientApps.AsNoTracking().SingleAsync(app => app.ClientId == "agora");
+        Assert.Equal(("Agora forum", true, 60, 200, 10), (agora.Name, agora.IsSuspended, agora.HeartbeatTimeoutSec, agora.SlowDbMs, agora.MaxErrorRatePercent));
+        Assert.False(await _service.UpdateAsync("ghost", settings)); // unknown client
+    }
+
+    [Theory]
+    [InlineData(10, 500, 5)]  // timeout shorter than the 10 s heartbeat interval allows
+    [InlineData(30, 0, 5)]    // slow database must be at least 1 ms
+    [InlineData(30, 500, 101)] // error rate is a percentage
+    public async Task Update_rejects_thresholds_out_of_range(int timeoutSec, int slowDbMs, int maxErrorRate)
+    {
+        var settings = new ClientAppSettings { Name = "Agora", HeartbeatTimeoutSec = timeoutSec, SlowDbMs = slowDbMs, MaxErrorRatePercent = maxErrorRate };
+
+        await Assert.ThrowsAsync<ValidationException>(() => _service.UpdateAsync("agora", settings));
+    }
+
+    [Fact]
+    public async Task Delete_removes_the_client_and_all_its_data()
+    {
+        var shop = await _service.CreateAsync("shop", "Shop");
+        _db.DataPoints.Add(new DataPoint { ClientAppId = shop.Id, Name = "order.placed", Value = 1, TimestampUtc = DateTime.UtcNow });
+        _db.Incidents.Add(new Incident { ClientAppId = shop.Id, Cause = HealthStatus.Down, Reason = "No heartbeat", OpenedAtUtc = DateTime.UtcNow });
+        await _db.SaveChangesAsync();
+        _db.ChangeTracker.Clear(); // like a new request: the rows are only in the database
+
+        Assert.True(await _service.DeleteAsync("shop"));
+
+        Assert.Null(await _service.GetByClientIdAsync("shop"));
+        Assert.Equal((0, 0), (await _db.DataPoints.CountAsync(), await _db.Incidents.CountAsync())); // removed by the cascade
+        Assert.False(await _service.DeleteAsync("shop"));
     }
 }

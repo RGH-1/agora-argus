@@ -1,0 +1,17 @@
+﻿@model Argus.Web.Data.Entities.ClientApp
+@{
+    ViewData["Title"] = $"Delete {Model.ClientId}";
+}
+
+<h1 class="h3 mb-3">Delete client app <code>@Model.ClientId</code>?</h1>
+
+<div class="alert alert-danger" style="max-width: 40rem">
+    This deletes <strong>@Model.Name</strong> and <strong>all its data</strong>: charts, data points, incidents and errors.
+    It can't be undone. Messages it sends afterwards are ignored as coming from an unknown client.
+    To stop it only for a while, <a asp-action="Edit" asp-route-id="@Model.ClientId" class="alert-link">suspend it</a> instead.
+</div>
+
+<form asp-action="Delete" asp-route-id="@Model.ClientId" method="post">
+    <button class="btn btn-danger">Delete</button>
+    <a asp-action="Index" class="btn btn-link">Cancel</a>
+</form>

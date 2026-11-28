@@ -37,6 +37,9 @@
                             @if (User.IsInRole(Argus.Web.Data.ArgusRoles.Admin))
                             {
                                 <li class="nav-item">
+                                    <a class="nav-link text-dark" asp-area="" asp-controller="ClientApps" asp-action="Index">Client apps</a>
+                                </li>
+                                <li class="nav-item">
                                     <a class="nav-link text-dark" asp-area="" asp-controller="Operators" asp-action="Index">Operators</a>
                                 </li>
                             }
@@ -44,6 +47,7 @@
                                 <a class="nav-link text-dark" asp-area="" asp-controller="Home" asp-action="Privacy">Privacy</a>
                             </li>
                         </ul>
+                        @await Component.InvokeAsync("ClientSwitcher")
                         <form asp-area="" asp-controller="Account" asp-action="Logout" method="post" class="d-flex align-items-center gap-2">
                             <span class="small text-muted">@User.Identity.Name</span>
                             <button class="btn btn-sm btn-outline-secondary">Log out</button>

@@ -8,5 +8,8 @@ public interface IClientAppRepository
     Task<ClientApp?> GetByClientIdAsync(string clientId, CancellationToken cancellationToken = default);
     Task<bool> ExistsAsync(string clientId, CancellationToken cancellationToken = default);
     Task AddAsync(ClientApp clientApp, CancellationToken cancellationToken = default);
+
+    /// <summary>Removed on SaveAsync, with all its data: every table's foreign key to ClientApps cascades.</summary>
+    void Remove(ClientApp clientApp);
     Task SaveAsync(CancellationToken cancellationToken = default);
 }

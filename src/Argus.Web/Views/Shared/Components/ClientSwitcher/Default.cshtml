@@ -1,0 +1,13 @@
+﻿@model Argus.Web.Models.ClientApps.ClientSwitcherViewModel
+
+@* Every per-client page (dashboard, incidents, errors) shows the client chosen here. *@
+<form asp-controller="ClientApps" asp-action="Select" method="post" class="d-flex align-items-center me-3">
+    <input type="hidden" name="returnUrl" value="@Model.ReturnUrl" />
+    <select name="clientId" class="form-select form-select-sm" aria-label="Client" onchange="this.form.submit()">
+        @foreach (var client in Model.Clients)
+        {
+            <option value="@client.ClientId" selected="@(client.Id == Model.Selected?.Id)">@client.Name</option>
+        }
+    </select>
+    <noscript><button class="btn btn-sm btn-outline-secondary ms-1">Switch</button></noscript>
+</form>

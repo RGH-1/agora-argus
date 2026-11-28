@@ -14,19 +14,18 @@ public class DashboardController(IClientAppService clientAppService, IMetricServ
         ["week"] = TimeSpan.FromDays(7),
     };
 
-    /// <summary>The charts of one client (§4.3); the first client when none is chosen.</summary>
+    /// <summary>The charts of one client (§4.3): the one chosen in the client switcher, or ?clientId=.</summary>
     public async Task<IActionResult> Index(string? clientId, string range = "day", CancellationToken cancellationToken = default)
     {
         if (!Ranges.TryGetValue(range, out var length)) return BadRequest();
 
         var clients = await clientAppService.GetAllAsync(cancellationToken);
-        var client = clientId is null ? clients.FirstOrDefault() : clients.FirstOrDefault(app => app.ClientId == clientId);
+        var client = ClientSelection.Resolve(HttpContext, clients, clientId);
         if (client is null) return NotFound();
 
         var toUtc = DateTime.UtcNow;
         return View(new DashboardViewModel
         {
-            Clients = clients,
             Client = client,
             Range = range,
             Charts = await metricService.GetDashboardAsync(client.Id, toUtc - length, toUtc, cancellationToken),

@@ -1,4 +1,5 @@
-﻿using Argus.Contracts;
+﻿using System.ComponentModel.DataAnnotations;
+using Argus.Contracts;
 using Argus.Contracts.Outbound;
 using Argus.Web.Data.Entities;
 using Argus.Web.Repositories;
@@ -26,6 +27,34 @@ public class ClientAppService(IClientAppRepository clientAppRepository, IClientN
         await clientAppRepository.AddAsync(clientApp, cancellationToken);
         return clientApp;
     }
+
+    public async Task<bool> UpdateAsync(string clientId, ClientAppSettings settings, CancellationToken cancellationToken = default)
+    {
+        // The form checked these too, but the service is the last line: every caller gets the same rules.
+        Validator.ValidateObject(settings, new ValidationContext(settings), validateAllProperties: true);
+
+        var client = await clientAppRepository.GetByClientIdAsync(clientId, cancellationToken);
+        if (client is null) return false;
+
+        client.Name = settings.Name.Trim();
+        client.IsSuspended = settings.IsSuspended;
+        client.HeartbeatTimeoutSec = settings.HeartbeatTimeoutSec;
+        client.SlowDbMs = settings.SlowDbMs;
+        client.MaxErrorRatePercent = settings.MaxErrorRatePercent;
+        await clientAppRepository.SaveAsync(cancellationToken);
+        return true;
+    }
+
+    public async Task<bool> DeleteAsync(string clientId, CancellationToken cancellationToken = default)
+    {
+        var client = await clientAppRepository.GetByClientIdAsync(clientId, cancellationToken);
+        if (client is null) return false;
+
+        clientAppRepository.Remove(client);
+        await clientAppRepository.SaveAsync(cancellationToken);
+        return true;
+    }
+
 
     public async Task<bool> SetMaintenanceAsync(string clientId, bool enabled, string? message, CancellationToken cancellationToken = default)
     {

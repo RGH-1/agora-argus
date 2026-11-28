@@ -1,0 +1,53 @@
+﻿@model Argus.Web.Services.ClientAppSettings
+@{
+    var clientId = (string)ViewData["ClientId"]!;
+    ViewData["Title"] = $"Edit {clientId}";
+}
+
+<h1 class="h3 mb-3">Edit client app <code>@clientId</code></h1>
+
+@if (TempData["Message"] is string message)
+{
+    <div class="alert alert-success py-2" role="status">@message</div>
+}
+
+<form asp-action="Edit" asp-route-id="@clientId" method="post" style="max-width: 32rem">
+    <div asp-validation-summary="ModelOnly" class="alert alert-danger py-2" role="alert"></div>
+    <div class="mb-3">
+        <label asp-for="Name" class="form-label"></label>
+        <input asp-for="Name" class="form-control" />
+        <span asp-validation-for="Name" class="text-danger small"></span>
+    </div>
+    <div class="form-check mb-3">
+        <input asp-for="IsSuspended" class="form-check-input" />
+        <label asp-for="IsSuspended" class="form-check-label"></label>
+        <div class="form-text">Argus logs and ignores every message from a suspended client.</div>
+    </div>
+
+    <h2 class="h6 mt-4">Health thresholds</h2>
+    <div class="row g-3 mb-3">
+        <div class="col-sm-4">
+            <label asp-for="HeartbeatTimeoutSec" class="form-label small"></label>
+            <input asp-for="HeartbeatTimeoutSec" class="form-control" />
+            <span asp-validation-for="HeartbeatTimeoutSec" class="text-danger small"></span>
+        </div>
+        <div class="col-sm-4">
+            <label asp-for="SlowDbMs" class="form-label small"></label>
+            <input asp-for="SlowDbMs" class="form-control" />
+            <span asp-validation-for="SlowDbMs" class="text-danger small"></span>
+        </div>
+        <div class="col-sm-4">
+            <label asp-for="MaxErrorRatePercent" class="form-label small"></label>
+            <input asp-for="MaxErrorRatePercent" class="form-control" />
+            <span asp-validation-for="MaxErrorRatePercent" class="text-danger small"></span>
+        </div>
+    </div>
+    <p class="form-text">No heartbeat for longer than the timeout makes the client Down; a slower database or a higher error rate makes it Degraded. Applied from the next heartbeat.</p>
+
+    <button class="btn btn-primary">Save</button>
+    <a asp-action="Index" class="btn btn-link">Cancel</a>
+</form>
+
+@section Scripts {
+    <partial name="_ValidationScriptsPartial" />
+}

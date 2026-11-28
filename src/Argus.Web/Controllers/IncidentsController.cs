@@ -4,13 +4,16 @@ using Microsoft.AspNetCore.Mvc;
 
 namespace Argus.Web.Controllers;
 
-public class IncidentsController(IIncidentService incidentService) : Controller
+public class IncidentsController(IClientAppService clientAppService, IIncidentService incidentService) : Controller
 {
-    /// <summary>All incidents, or one client's (the status board links here with ?clientId=agora).</summary>
+    /// <summary>The incidents of one client: the one chosen in the client switcher, or ?clientId= (from the status board).</summary>
     public async Task<IActionResult> Index(string? clientId, CancellationToken cancellationToken)
     {
-        ViewData["ClientId"] = clientId;
-        return View(await incidentService.GetAllAsync(clientId, cancellationToken));
+        var client = ClientSelection.Resolve(HttpContext, await clientAppService.GetAllAsync(cancellationToken), clientId);
+        if (client is null) return NotFound();
+
+        ViewData["Client"] = client;
+        return View(await incidentService.GetAllAsync(client.ClientId, cancellationToken));
     }
 
     public async Task<IActionResult> Details(int id, CancellationToken cancellationToken) =>

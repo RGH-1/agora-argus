@@ -1,0 +1,56 @@
+﻿@model IReadOnlyList<Argus.Web.Data.Entities.ClientApp>
+@{
+    ViewData["Title"] = "Client apps";
+}
+
+<div class="d-flex align-items-center gap-3 mb-3">
+    <h1 class="h3 mb-0">Client apps</h1>
+    <a asp-action="Create" class="btn btn-sm btn-primary">New client app</a>
+</div>
+
+@if (TempData["Message"] is string message)
+{
+    <div class="alert alert-success py-2" role="status">@message</div>
+}
+
+<table class="table table-sm align-middle">
+    <thead>
+        <tr>
+            <th>Name</th>
+            <th>Client ID</th>
+            <th>Status</th>
+            <th>Health</th>
+            <th class="text-end">Heartbeat timeout</th>
+            <th class="text-end">Slow database</th>
+            <th class="text-end">Max error rate</th>
+            <th></th>
+        </tr>
+    </thead>
+    <tbody>
+        @foreach (var client in Model)
+        {
+            <tr>
+                <td>@client.Name</td>
+                <td><code>@client.ClientId</code></td>
+                <td>
+                    @if (client.IsSuspended)
+                    {
+                        <span class="badge text-bg-dark">Suspended</span>
+                    }
+                    else
+                    {
+                        <span class="badge text-bg-light border">Active</span>
+                    }
+                </td>
+                <td>@client.Health</td>
+                <td class="text-end">@client.HeartbeatTimeoutSec s</td>
+                <td class="text-end">@client.SlowDbMs ms</td>
+                <td class="text-end">@client.MaxErrorRatePercent %</td>
+                <td class="text-end text-nowrap">
+                    <a asp-action="Edit" asp-route-id="@client.ClientId">Edit</a> ·
+                    <a asp-action="Delete" asp-route-id="@client.ClientId" class="text-danger">Delete</a>
+                </td>
+            </tr>
+        }
+    </tbody>
+</table>
