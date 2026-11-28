@@ -22,6 +22,9 @@ builder.Services.AddDbContext<ArgusDbContext>(options => options.UseSqlServer(co
 
 // Identity (§4): Argus staff only. No public registration; the Admin creates operator accounts.
 builder.Services.AddIdentity<IdentityUser, IdentityRole>().AddEntityFrameworkStores<ArgusDbContext>();
+// Browsers share cookies across ports, and Agora also uses Identity's default cookie name on localhost:
+// without its own name, logging in to one app would log you out of the other.
+builder.Services.ConfigureApplicationCookie(options => options.Cookie.Name = "Argus.Auth");
 // Checks the account on every request, so a deleted operator is signed out at once instead of when the cookie expires.
 builder.Services.Configure<SecurityStampValidatorOptions>(options => options.ValidationInterval = TimeSpan.Zero);
 builder.Services.AddScoped<IdentitySeeder>();
