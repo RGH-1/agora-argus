@@ -11,7 +11,8 @@ using Microsoft.EntityFrameworkCore;
 var builder = WebApplication.CreateBuilder(args);
 
 // Add services to the container.
-builder.Services.AddControllersWithViews();
+builder.Services.AddControllersWithViews(options =>
+    options.Filters.Add(new Microsoft.AspNetCore.Mvc.AutoValidateAntiforgeryTokenAttribute()));
 builder.Services.AddSignalR();
 var connectionString = builder.Configuration.GetConnectionString("AgoraDb")
     ?? throw new InvalidOperationException(
@@ -95,6 +96,18 @@ if (!app.Environment.IsDevelopment())
     // The default HSTS value is 30 days. You may want to change this for production scenarios, see https://aka.ms/aspnetcore-hsts.
     app.UseHsts();
 }
+
+// Keep 404s friendly without re-executing maintenance 503 responses or API/SignalR endpoints.
+app.UseStatusCodePages(async statusContext =>
+{
+    var response = statusContext.HttpContext.Response;
+    var request = statusContext.HttpContext.Request;
+    if (response.StatusCode != StatusCodes.Status404NotFound || response.HasStarted ||
+        request.Path.StartsWithSegments("/hubs") || request.Headers.Accept.Any(value => value?.Contains("application/json", StringComparison.OrdinalIgnoreCase) == true))
+        return;
+    response.ContentType = "text/html; charset=utf-8";
+    await response.WriteAsync("<!doctype html><html lang=\"en\"><head><meta charset=\"utf-8\"><meta name=\"viewport\" content=\"width=device-width, initial-scale=1\"><title>Page not found · Agora</title><link rel=\"stylesheet\" href=\"/lib/bootstrap/dist/css/bootstrap.min.css\"></head><body><main class=\"container py-5\"><div class=\"card shadow-sm mx-auto\" style=\"max-width:42rem\"><div class=\"card-body p-4\"><h1 class=\"h2\">Page not found</h1><p class=\"text-muted\">The page you requested does not exist or is no longer available.</p><a class=\"btn btn-primary\" href=\"/\">Go to Home</a> <a class=\"btn btn-outline-secondary\" href=\"/Forums\">Browse forums</a></div></div></main></body></html>");
+});
 
 app.UseArgusMetrics();
 app.UseHttpsRedirection();

@@ -4,6 +4,7 @@ using System.ComponentModel.DataAnnotations;
 using Agora.Web.Data;
 using Agora.Web.Data.Entities;
 using Agora.Web.Models.Forums;
+using Agora.Web.Models.Moderation;
 using Agora.Web.Repositories;
 using Agora.Web.Services;
 using Microsoft.AspNetCore.Authorization;
@@ -16,6 +17,33 @@ namespace Agora.Web.Tests;
 
 public class AgoraForumsTests
 {
+    [Fact]
+    public void Reject_forum_model_enforces_empty_whitespace_and_length_limits_without_truncation()
+    {
+        static bool IsValid(string reason)
+        {
+            var model = new RejectForumViewModel { ForumId = 1, Reason = reason };
+            return Validator.TryValidateObject(model, new ValidationContext(model), [], true);
+        }
+
+        Assert.True(IsValid(new string('r', 500)));
+        Assert.False(IsValid(string.Empty));
+        Assert.False(IsValid("   "));
+        Assert.False(IsValid(new string('r', 501)));
+    }
+
+    [Fact]
+    public void Reject_forum_client_script_initializes_counter_without_eager_validation()
+    {
+        var root = new DirectoryInfo(AppContext.BaseDirectory);
+        while (root is not null && !File.Exists(Path.Combine(root.FullName, "agora-argus.slnx"))) root = root.Parent;
+        Assert.NotNull(root);
+        var script = File.ReadAllText(Path.Combine(root!.FullName, "src", "Agora.Web", "wwwroot", "js", "moderation-rejection.js"));
+        Assert.Contains("updateCounter(); field.addEventListener", script);
+        Assert.DoesNotContain("validate(); field.addEventListener", script);
+        Assert.Contains("form.addEventListener(\"submit\"", script);
+    }
+
     [Fact]
     public async Task New_forum_is_pending_and_only_approved_forums_are_public()
     {
