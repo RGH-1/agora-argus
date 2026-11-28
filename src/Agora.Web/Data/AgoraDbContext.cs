@@ -17,6 +17,10 @@ public class AgoraDbContext(DbContextOptions<AgoraDbContext> options)
     public DbSet<UserBanAction> UserBanActions => Set<UserBanAction>();
     public DbSet<Rule> Rules => Set<Rule>();
     public DbSet<RuleSeedState> RuleSeedStates => Set<RuleSeedState>();
+    public DbSet<MaintenanceState> MaintenanceStates => Set<MaintenanceState>();
+    public DbSet<ProcessedArgusMessage> ProcessedArgusMessages => Set<ProcessedArgusMessage>();
+    public DbSet<ArgusHealthStatusEvent> ArgusHealthStatusEvents => Set<ArgusHealthStatusEvent>();
+    public DbSet<ArgusInsight> ArgusInsights => Set<ArgusInsight>();
 
     protected override void OnModelCreating(ModelBuilder builder)
     {
@@ -116,6 +120,36 @@ public class AgoraDbContext(DbContextOptions<AgoraDbContext> options)
             entity.HasIndex(action => new { action.TargetUserId, action.CreatedAtUtc });
             entity.HasOne<ApplicationUser>().WithMany().HasForeignKey(action => action.ActorId).OnDelete(DeleteBehavior.Restrict);
             entity.HasOne<ApplicationUser>().WithMany().HasForeignKey(action => action.TargetUserId).OnDelete(DeleteBehavior.Restrict);
+        });
+
+        builder.Entity<MaintenanceState>(entity =>
+        {
+            entity.HasKey(state => state.Id);
+            entity.Property(state => state.Message).HasMaxLength(500);
+        });
+
+        builder.Entity<ProcessedArgusMessage>(entity =>
+        {
+            entity.HasKey(message => message.MessageId);
+            entity.Property(message => message.MessageType).HasMaxLength(100).IsRequired();
+        });
+
+        builder.Entity<ArgusHealthStatusEvent>(entity =>
+        {
+            entity.Property(item => item.OldStatus).HasConversion<string>().HasMaxLength(20);
+            entity.Property(item => item.NewStatus).HasConversion<string>().HasMaxLength(20);
+            entity.Property(item => item.Reason).HasMaxLength(1000).IsRequired();
+            entity.HasIndex(item => item.MessageId).IsUnique();
+            entity.HasIndex(item => item.OccurredAtUtc);
+        });
+
+        builder.Entity<ArgusInsight>(entity =>
+        {
+            entity.Property(item => item.Title).HasMaxLength(300).IsRequired();
+            entity.Property(item => item.Detail).HasMaxLength(2000).IsRequired();
+            entity.Property(item => item.Severity).HasConversion<string>().HasMaxLength(20);
+            entity.HasIndex(item => item.MessageId).IsUnique();
+            entity.HasIndex(item => item.OccurredAtUtc);
         });
     }
 }

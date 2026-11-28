@@ -1,4 +1,7 @@
 ﻿<!DOCTYPE html>
+@using Agora.Web.Services
+@inject IMaintenanceStateService Maintenance
+@{ var maintenance = await Maintenance.GetAsync(Context.RequestAborted); }
 <html lang="en">
 <head>
     <meta charset="utf-8" />
@@ -43,6 +46,7 @@
                             </li>
                             <li class="nav-item"><a class="nav-link text-dark" asp-area="Moderation" asp-controller="Rules" asp-action="Index">Manage rules</a></li>
                             <li class="nav-item"><a class="nav-link text-dark" asp-area="Moderation" asp-controller="Users" asp-action="Index">Manage users</a></li>
+                            <li class="nav-item"><a class="nav-link text-dark" asp-area="Moderation" asp-controller="Argus" asp-action="Index">Argus panel</a></li>
                         }
                     </ul>
                     <ul class="navbar-nav">
@@ -84,6 +88,9 @@
             </div>
         </nav>
     </header>
+    <div id="maintenance-banner" class="alert alert-warning rounded-0 border-0 mb-0" role="status" hidden="@(!maintenance.Enabled)">
+        <div class="container d-flex gap-2 align-items-center"><span aria-hidden="true">⚠</span><span data-maintenance-message>@maintenance.DisplayMessage</span></div>
+    </div>
     <div class="container">
         <main role="main" class="pb-3">
             @RenderBody()
@@ -98,7 +105,9 @@
     <div id="notification-toasts" class="toast-container position-fixed top-0 end-0 p-3" aria-live="polite" aria-atomic="true"></div>
     <script src="~/lib/jquery/dist/jquery.min.js"></script>
     <script src="~/lib/bootstrap/dist/js/bootstrap.bundle.min.js"></script>
-    @if (User.Identity?.IsAuthenticated == true) { <script src="~/lib/microsoft-signalr/dist/browser/signalr.min.js" asp-append-version="true"></script><script src="~/js/notifications.js" asp-append-version="true"></script> }
+    <script src="~/lib/microsoft-signalr/dist/browser/signalr.min.js" asp-append-version="true"></script>
+    <script src="~/js/maintenance-status.js" asp-append-version="true"></script>
+    @if (User.Identity?.IsAuthenticated == true) { <script src="~/js/notifications.js" asp-append-version="true"></script> }
     <script src="~/js/site.js" asp-append-version="true"></script>
     @await RenderSectionAsync("Scripts", required: false)
 </body>

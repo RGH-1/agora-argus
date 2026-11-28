@@ -1,0 +1,23 @@
+@model Agora.Web.Models.Moderation.ArgusPanelViewModel
+@using Argus.Contracts
+@{
+    ViewData["Title"] = "Argus panel";
+    string Badge(HealthStatus value) => value switch { HealthStatus.Healthy => "success", HealthStatus.Degraded => "warning", HealthStatus.Down or HealthStatus.Stopped => "danger", _ => "secondary" };
+    string Severity(InsightSeverity value) => value switch { InsightSeverity.Critical => "danger", InsightSeverity.Warning => "warning", _ => "info" };
+}
+<h1 class="mb-4">Argus panel</h1>
+<div class="row g-3 mb-4">
+    <div class="col-md-6"><section class="card h-100"><div class="card-body"><h2 class="h5">Current health</h2>
+        @if (Model.LatestHealth is null) { <p class="text-muted mb-0">No health updates received yet.</p> }
+        else { <p class="mb-2"><span class="badge text-bg-@Badge(Model.LatestHealth.NewStatus)">@Model.LatestHealth.NewStatus</span></p><p class="mb-1 text-break">@Model.LatestHealth.Reason</p><small class="text-muted">@Model.LatestHealth.OccurredAtUtc.UtcDateTime.ToString("u") @if (Model.LatestHealth.IncidentId is not null) { <text>· Incident #@Model.LatestHealth.IncidentId</text> }</small> }
+    </div></section></div>
+    <div class="col-md-6"><section class="card h-100"><div class="card-body"><h2 class="h5">Maintenance</h2><p class="mb-2"><span class="badge text-bg-@(Model.Maintenance.Enabled ? "warning" : "success")">@(Model.Maintenance.Enabled ? "Enabled" : "Disabled")</span></p>
+        @if (Model.Maintenance.Enabled) { <p class="mb-1 text-break">@Model.Maintenance.DisplayMessage</p> }<small class="text-muted">@(Model.Maintenance.UpdatedAtUtc?.UtcDateTime.ToString("u") ?? "No status received")</small>
+    </div></section></div>
+</div>
+<section class="card mb-4"><div class="card-body"><h2 class="h4">Recent health-status changes</h2><div class="table-responsive"><table class="table align-middle mb-0"><thead><tr><th>Previous</th><th>Current</th><th>Reason</th><th>Incident</th><th>Time (UTC)</th></tr></thead><tbody>
+@if (Model.HealthEvents.Count == 0) { <tr><td colspan="5" class="text-muted">No health updates received yet.</td></tr> } else { foreach (var item in Model.HealthEvents) { <tr><td>@item.OldStatus</td><td><span class="badge text-bg-@Badge(item.NewStatus)">@item.NewStatus</span></td><td class="text-break">@item.Reason</td><td>@(item.IncidentId?.ToString() ?? "—")</td><td>@item.OccurredAtUtc.UtcDateTime.ToString("u")</td></tr> } }
+</tbody></table></div></div></section>
+<section class="card"><div class="card-body"><h2 class="h4">Insights</h2>
+@if (Model.Insights.Count == 0) { <p class="text-muted mb-0">No insights received yet.</p> } else { <div class="list-group list-group-flush">@foreach (var item in Model.Insights) { <article class="list-group-item px-0"><div class="d-flex gap-2 align-items-center"><h3 class="h6 mb-0 text-break">@item.Title</h3><span class="badge text-bg-@Severity(item.Severity)">@item.Severity</span></div><p class="mb-1 mt-2 text-break" style="white-space: pre-wrap">@item.Detail</p><small class="text-muted">@item.OccurredAtUtc.UtcDateTime.ToString("u")</small></article> }</div> }
+</div></section>
