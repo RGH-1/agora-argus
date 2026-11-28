@@ -22,7 +22,10 @@ builder.Services.AddDbContext<AgoraDbContext>(options =>
 builder.Services.AddHealthChecks()
     .AddCheck<AgoraDatabaseHealthCheck>("AgoraDb");
 builder.Services.AddArgus(builder.Configuration.GetSection("Argus"))
-    .AddGauge<AgoraDbContext>("reports.pending", async db => (decimal)await db.Reports.CountAsync(report => report.Status == ReportStatus.Open));
+    .AddGauge<AgoraDbContext>("reports.pending", async db => (decimal)await db.Reports.CountAsync(report => report.Status == ReportStatus.Open))
+    .OnMaintenanceModeChanged<AgoraArgusMessageHandler>((handler, message) => handler.HandleMaintenanceModeChangedAsync(message))
+    .OnHealthStatusChanged<AgoraArgusMessageHandler>((handler, message) => handler.HandleHealthStatusChangedAsync(message))
+    .OnInsightPublished<AgoraArgusMessageHandler>((handler, message) => handler.HandleInsightPublishedAsync(message));
 builder.Services
     .AddIdentity<ApplicationUser, IdentityRole>()
     .AddEntityFrameworkStores<AgoraDbContext>()
@@ -69,6 +72,10 @@ builder.Services.AddScoped<ISubscriptionRepository, SubscriptionRepository>();
 builder.Services.AddScoped<ISubscriptionService, SubscriptionService>();
 builder.Services.AddScoped<IRegistrationService, RegistrationService>();
 builder.Services.AddScoped<IRealtimeNotificationService, RealtimeNotificationService>();
+builder.Services.AddScoped<IMaintenanceStateService, MaintenanceStateService>();
+builder.Services.AddScoped<IArgusPanelService, ArgusPanelService>();
+builder.Services.AddScoped<AgoraArgusMessageHandler>();
+builder.Services.AddSingleton<IPublicMaintenanceNotifier, PublicMaintenanceNotifier>();
 builder.Services.AddScoped<DevelopmentDatabaseSeeder>();
 
 var app = builder.Build();
@@ -93,11 +100,14 @@ app.UseArgusMetrics();
 app.UseHttpsRedirection();
 app.UseRouting();
 
+app.UseMiddleware<Agora.Web.Middleware.MaintenanceModeMiddleware>();
+
 app.UseAuthentication();
 app.UseAuthorization();
 
 app.MapStaticAssets();
 app.MapHub<Agora.Web.Hubs.AgoraNotificationHub>("/hubs/notifications");
+app.MapHub<Agora.Web.Hubs.MaintenanceStatusHub>("/hubs/maintenance");
 
 app.MapControllerRoute(
     name: "areas",

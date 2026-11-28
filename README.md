@@ -83,6 +83,20 @@ builder.Services.AddArgus(builder.Configuration.GetSection("Argus"))
 
 The SDK consumes `<clientId>.inbox`. A handler that throws is retried, and after 3 failures the message goes to `<clientId>.dead`. Delivery is at least once, so a handler should skip a `MessageId` it has already seen. Message types without a handler are acknowledged and ignored.
 
+### Agora handling Argus messages (AA-46)
+
+Agora persists maintenance state, health-status history, and received insights in its own database. It registers the existing SDK inbox handlers for `MaintenanceModeChanged`, `HealthStatusChanged`, and `InsightPublished`; no second RabbitMQ consumer is used. Apply the `AddArgusMessageHandling` migration before relying on inbox delivery:
+
+```powershell
+dotnet ef database update --project src/Agora.Web --startup-project src/Agora.Web
+```
+
+When Argus starts maintenance for `agora`, every page receives a server-rendered banner and all business writes return HTTP 503 before their MVC action runs. Login and logout, reads, health checks, and SignalR remain available. The public `/hubs/maintenance` hub refreshes the banner for anonymous and authenticated browsers; it exposes no client-callable state-changing methods. Moderators and Admins can view persisted health changes and advisory insights at `/Moderation/Argus`.
+
+Maintenance updates are processed in a serializable database transaction with the inbox de-duplication record. On SQL Server this locks the singleton state key/range, so concurrent consumers re-read the committed state before deciding whether an event is stale. A bounded retry handles a concurrent singleton initialization or transient update conflict, and SignalR is sent only after the transaction commits.
+
+The Argus sender currently logs and drops an outbound notification when RabbitMQ is unavailable (there is no Argus outbound outbox). Consequently Agora reliably retains messages it successfully consumes, but cannot recover an event that Argus did not successfully publish. Test end-to-end by using Argus's Start/End maintenance controls for the `agora` client, then verify the banner, a blocked forum POST, the live OFF transition, and the Argus panel as a Moderator.
+
 
 ## Docker Infrastructure (AA-4)
 
