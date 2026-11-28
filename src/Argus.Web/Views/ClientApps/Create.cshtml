@@ -1,0 +1,27 @@
+﻿@model Argus.Web.Models.ClientApps.NewClientAppViewModel
+@{
+    ViewData["Title"] = "New client app";
+}
+
+<h1 class="h3 mb-3">New client app</h1>
+
+<form asp-action="Create" method="post" style="max-width: 32rem">
+    <div asp-validation-summary="ModelOnly" class="alert alert-danger py-2" role="alert"></div>
+    <div class="mb-3">
+        <label asp-for="ClientId" class="form-label"></label>
+        <input asp-for="ClientId" class="form-control" autocomplete="off" />
+        <div class="form-text">What the app puts in <code>Argus:ClientId</code>. Lowercase letters, digits and '-'; it can't be changed later.</div>
+        <span asp-validation-for="ClientId" class="text-danger small"></span>
+    </div>
+    <div class="mb-3">
+        <label asp-for="Name" class="form-label"></label>
+        <input asp-for="Name" class="form-control" />
+        <span asp-validation-for="Name" class="text-danger small"></span>
+    </div>
+    <button class="btn btn-primary">Create</button>
+    <a asp-action="Index" class="btn btn-link">Cancel</a>
+</form>
+
+@section Scripts {
+    <partial name="_ValidationScriptsPartial" />
+}
