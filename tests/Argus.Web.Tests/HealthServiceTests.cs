@@ -19,13 +19,14 @@ public class HealthServiceTests : IAsyncLifetime
     private ArgusDbContext _db = null!;
     private HealthService _service = null!;
     private readonly FakeClientNotifier _notifier = new();
+    private readonly FakeStatusBoardNotifier _board = new();
 
     public async Task InitializeAsync()
     {
         await _connection.OpenAsync();
         _db = new ArgusDbContext(new DbContextOptionsBuilder<ArgusDbContext>().UseSqlite(_connection).Options);
         await _db.Database.EnsureCreatedAsync(); // seeds agora and demo
-        _service = new HealthService(new ClientAppRepository(_db), new HealthRepository(_db), new IncidentRepository(_db), _notifier, NullLogger<HealthService>.Instance);
+        _service = new HealthService(new ClientAppRepository(_db), new HealthRepository(_db), new IncidentRepository(_db), _notifier, _board, NullLogger<HealthService>.Instance);
     }
 
     public async Task DisposeAsync()
@@ -322,5 +323,29 @@ public class HealthServiceTests : IAsyncLifetime
 
         Assert.Equal(["newest", "middle"], errors.Select(error => error.Message));
         Assert.Equal(("System.InvalidOperationException", "/Forums"), (errors[0].ExceptionType, errors[0].Path));
+    }
+
+    [Fact]
+    public async Task Status_changes_and_incidents_are_pushed_to_the_open_pages()
+    {
+        await _service.ProcessAsync(new Heartbeat { ClientId = "agora", DbHealthy = true });
+        await _service.ProcessAsync(new Heartbeat { ClientId = "agora", DbHealthy = false }); // Degraded: opens an incident
+        await _service.ProcessAsync(new Heartbeat { ClientId = "agora", DbHealthy = true });  // Healthy: resolves it
+
+        var incident = await _db.Incidents.SingleAsync();
+        Assert.Equal(
+            [("agora", HealthStatus.Healthy, null, false), ("agora", HealthStatus.Degraded, incident.Id, false), ("agora", HealthStatus.Healthy, incident.Id, true)],
+            _board.StatusChanges);
+        Assert.Equal(3, _board.BoardChanges); // every heartbeat updates the card's numbers
+    }
+
+    [Fact]
+    public async Task Events_and_errors_dont_reload_the_board()
+    {
+        await _service.ProcessAsync(new ActivityRecorded { ClientId = "agora", EventType = "post.liked" });
+        await _service.ProcessAsync(new ErrorReported { ClientId = "agora", Message = "Boom", ExceptionType = "System.Exception" });
+
+        Assert.Equal(0, _board.BoardChanges);
+        Assert.Empty(_board.StatusChanges);
     }
 }
